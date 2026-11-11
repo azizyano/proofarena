@@ -659,3 +659,48 @@ def test_pages_render_and_show_simulated_chain_banner(app, client, wallet):
         assert response.status_code == 200, (path, response.status_code)
         assert "LOCAL SIMULATOR" in response.text or path == "/status"
     assert client.get("/bounties/ch_missing").status_code == 404
+
+
+def test_refund_response_includes_receipts(app, client, wallet, workdir, monkeypatch):
+    """The refund endpoint must mirror the payout endpoint's response shape."""
+    headers = login(app, client, wallet)
+    challenge_id, funded = create_and_fund(app, client, wallet, headers)
+
+    canned = {
+        "attempt": {"attempt_id": 42, "kind": "refund", "status": "pending"},
+        "state": "RefundPending",
+        "receipts": [{"receipt_id": "local-000042", "kind": "refund_requested"}],
+    }
+    monkeypatch.setattr(app.state.pa.ledger, "refund_expired", lambda **kwargs: canned)
+    monkeypatch.setattr(app.state.pa.ledger, "get_bounty", lambda bid: _bounty_stub())
+
+    intent = app.state.pa.auth.issue_intent(
+        account=wallet.account, action="refund_expired", payload={"challenge_id": challenge_id}
+    )
+    response = client.post(
+        f"/v1/challenges/{challenge_id}/refund",
+        headers=headers,
+        json={"message": intent["message"], "signature": wallet.sign(intent["message"])},
+    )
+    assert response.status_code == 202, response.text
+    body = response.json()
+    assert body["receipts"][0]["receipt_id"] == "local-000042"
+    assert body["attempt"]["attempt_id"] == 42
+    assert "RefundPending" in body["note"]
+
+
+def _bounty_stub():
+    from proofarena.chain.models import Bounty, BountyState
+
+    return Bounty(
+        bounty_id=1,
+        owner=OWNER,
+        title="stub",
+        reward_yocto=10**23,
+        metadata_hash_hex="a" * 64,
+        deadline_ns=1,
+        review_deadline_ns=2,
+        created_ns=0,
+        state=BountyState.REFUND_PENDING,
+        escrow_balance_yocto=10**23,
+    )

@@ -1110,7 +1110,16 @@ async def refund_challenge(request: Request) -> Response:
         entity_id=challenge_id,
         payload={"attempt_id": result["attempt"]["attempt_id"]},
     )
-    return _json({"attempt": result["attempt"], "state": bounty.effective_state.value}, 202)
+    _settle_async(ctx, challenge_id, int(result["attempt"]["attempt_id"]))
+    return _json(
+        {
+            "attempt": result["attempt"],
+            "state": bounty.effective_state.value,
+            "receipts": result["receipts"],
+            "note": "RefundPending — the refund is not final until the callback settles",
+        },
+        202,
+    )
 
 
 @api

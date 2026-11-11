@@ -261,8 +261,18 @@ def create_signer_app(
             outcome = state.wallet.call(method, args, deposit_yocto=deposit, gas=gas)
         except WalletError as exc:
             state.audit({"kind": "failed", "method": method, "deposit_yocto": str(deposit), "error": str(exc)[:200]})
+            return JSONResponse({"error": "E_TX", "message": str(exc), "success": False}, 502)
+        except Exception as exc:  # RPC flakiness must never become an HTML 500
+            state.audit(
+                {"kind": "failed", "method": method, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
+            )
             return JSONResponse(
-                {"error": "E_TX", "message": str(exc), "success": False}, 502
+                {
+                    "error": "E_TX",
+                    "message": f"{type(exc).__name__}: {exc}"[:400],
+                    "success": False,
+                },
+                502,
             )
         state.audit(
             {

@@ -36,8 +36,8 @@ an external dependency is missing.
 | PA-014 | P0 | Security | IN_REVIEW | `docs/THREAT_MODEL.md`, ADR-0005 limitations | P0 findings: none open; declared residual risks | — |
 | PA-015 | P0 | QA | TESTED_LOCAL | `docs/QA_MATRIX.md` | 82 passed, two consecutive runs | — |
 | PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid; committed tree exported with `git archive HEAD` (75 files) → 82 passed + demo complete | — |
-| PA-017 | P0 | NEAR/DevOps | BLOCKED (partially verified) | `proofarena/near/` (base58, Borsh, signing, RPC, wallets), `chain/near_testnet.py`, `wallet/near_signer.py`, `scripts/testnet/{preflight,deploy,smoke}.py`, `docs/TESTNET_RUNBOOK.md` | 42 offline tests + 10 account tests; **testnet account funded** (`proofarena-c23922.testnet`); **a real testnet tx executed and is final** (`3E3cn3gfbJw9Lho4RgB5ntUy7QLcEieUkJ5kjwfQk22A`, `CodeDoesNotExist` = encoding accepted); contract not yet deployed | B6 + B7 |
-| PA-018 | P0 | CEO/PM | DONE (verdict) | release verdict in README | `READY FOR TESTNET DEMO`, not `VERIFIED_TESTNET` | — |
+| PA-017 | P0 | NEAR/DevOps | VERIFIED_TESTNET | `proofarena/near/` (base58, Borsh, signing, RPC, wallets), `chain/near_testnet.py`, `wallet/near_signer.py`, `scripts/testnet/{preflight,deploy,smoke}.py`, `docs/TESTNET_RUNBOOK.md` | contract deployed (`9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61`); full lifecycle on chain (fund → claim → approve → payout once); refund path on chain; 6+ explorer-verifiable tx hashes in `docs/TESTNET_EVIDENCE.md` | — |
+| PA-018 | P0 | CEO/PM | DONE (verdict) | release verdict in README | `VERIFIED_TESTNET` — payout and refund both observed on chain; production still out of scope | — |
 | PA-019 | P0 | Docs/Demo | TESTED_LOCAL | `README.md`, `docs/DEMO_SCRIPT.md`, `docs/SUBMISSION.md` | demo script executed; no screenshots (no browser) | — |
 | PA-020 | P1 | Frontend | TESTED_LOCAL | responsive CSS at 1280/390, `prefers` none | CSS media queries; not visually verified in a browser | browser check pending |
 | PA-021 | P1 | Backend | TESTED_LOCAL | append-only audit stream + timeline + counter metrics in `/health` | timeline tests; no secret values in logs | — |
@@ -46,7 +46,7 @@ an external dependency is missing.
 ## Test totals
 
 ```
-python -m pytest tests/ -q   →   134 passed  (escrow, runner, API, web, signer, NEAR plumbing, account)
+python -m pytest tests/ -q   →   156 passed  (escrow, runner, API, web, signer, NEAR plumbing, account, build config)
 scripts/e2e_demo.py          →   PATCH_VERIFIED → Paid once, 6 receipts, chain valid
 
 # fresh-tree check for the local MVP (earlier commit):
@@ -63,12 +63,12 @@ python scripts/testnet/preflight.py              →   reports missing account/c
 | # | Step | Command | Evidence produced |
 |---|---|---|---|
 | 1 | Rust + wasm target | `rustup target add wasm32-unknown-unknown` | `cargo --version`, target list |
-| 2 | ~~Testnet account + key~~ | done: `proofarena-c23922.testnet` | account id + funded balance |
+| 2 | ~~Testnet account + key~~ | done: `proofarena-c23922.testnet` + `coldlemon3275.testnet` + auditor account | account ids, funded balances |
 | 3 | Env | `$env:NEAR_TESTNET_ACCOUNT`, `$env:NEAR_CONTRACT_ID` | `preflight` PASS lines |
 | 4 | Compile + unit tests | `cargo test`, `python scripts/testnet/deploy.py --check` | wasm artifact + test output |
-| 5 | Deploy | `python scripts/testnet/deploy.py --dry-run` then `--yes` | deploy tx hash |
+| 5 | Deploy | `python scripts/testnet/deploy.py --dry-run` then `--yes` | deploy tx `9bK3NTS9…` |
 | 6 | Run app in testnet mode | `wallet/near_signer.py`, `PROOFARENA_CHAIN_MODE=near-testnet scripts/dev.py` | signer + API logs |
-| 7 | On-chain lifecycle | `python scripts/testnet/smoke.py` | 6 tx hashes + explorer links |
+| 7 | On-chain lifecycle | `python scripts/testnet/smoke.py` + `refund_demo.py` | 7 tx hashes + explorer links |
 
 ## Current P0 risks (open)
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import secrets
 import sys
 
@@ -28,6 +29,7 @@ try:  # make Unicode output safe on legacy Windows consoles
 except Exception:  # pragma: no cover - non-reconfigurable stream
     pass
 import time
+from decimal import Decimal
 from pathlib import Path
 
 import requests
@@ -131,6 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--submission-seconds", type=int, default=900)
     parser.add_argument("--review-seconds", type=int, default=900)
     parser.add_argument("--settle-timeout", type=float, default=90.0)
+    parser.add_argument(
+        "--auditor-account",
+        default=os.environ.get("PROOFARENA_AGENT_ACCOUNT"),
+        help="on-chain account that signs the claim (the future payout recipient)",
+    )
     args = parser.parse_args(argv)
 
     api = Api(args.api)
@@ -165,7 +172,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    session issued for {account}")
 
     step(2, "Owner creates and funds a bounty (transaction 1)")
-    reward_yocto = int(args.reward_near * 10**24)
+    # Decimal, not float: 0.1 * 10**24 in binary floating point is not exactly 1e23.
+    reward_yocto = int(Decimal(str(args.reward_near)) * Decimal(10) ** 24)
+    if Decimal(str(args.reward_near)) * Decimal(10) ** 24 != reward_yocto:
+        raise SystemExit("reward must be an exact multiple of 1e-24 NEAR")
     created = api.post(
         "/v1/challenges",
         {
@@ -200,10 +210,11 @@ def main(argv: list[str] | None = None) -> int:
     tx_line("create_bounty", funded["receipts"][0])
     print(f"    bounty #{bounty_id} state={funded['bounty']['state']}")
 
-    step(3, "Owner issues scoped agent tokens")
+    auditor_account = args.auditor_account or "auditor.agent.local"
+    step(3, f"Owner issues scoped agent tokens (auditor = {auditor_account})")
     auditor = api.post(
         f"/v1/challenges/{challenge_id}/agent-token",
-        {"role": "auditor", "agent_account": "auditor.agent.local"},
+        {"role": "auditor", "agent_account": auditor_account},
     )["token"]
     defender = api.post(
         f"/v1/challenges/{challenge_id}/agent-token",
@@ -291,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
         {"message": intent["message"], "signature": wallet.sign(intent["message"])},
     )
     tx_line("request_payout", payout["receipts"][0])
+    for entry in payout["receipts"][0].get("data", {}).get("logs", []):
+        print(f"    log: {entry[:160]}")
     attempt = payout["attempt"]["attempt_id"]
     state = api.get(f"/v1/challenges/{challenge_id}")["challenge"]
     print(f"    attempt #{attempt} state={state['state']} paid={state['chain']['paid_yocto']}")
@@ -328,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"verification: {result['status']}")
     print(f"settlement  : {final['state']}")
     print(f"contract    : {contract}")
-    print(f"explorer    : {EXPLORER}/accounts/{contract}")
+    print(f"explorer    : https://explorer.testnet.near.org/accounts/{contract}")
     receipts = api.get(f"/v1/challenges/{challenge_id}/receipts")["receipts"]
     print("\ntransactions:")
     for receipt in receipts:

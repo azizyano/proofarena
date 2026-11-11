@@ -18,6 +18,7 @@ Explorer URLs are built from the configured network; nothing is invented.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -67,6 +68,7 @@ class NearTestnetAdapter:
         self.network = network
         self.contract_id = contract_id or self.wallet.contract_id()
         self.rpc = self.wallet.rpc
+        self.agent_wallet = self._load_agent_wallet(self.contract_id)
         self.settle_timeout_s = settle_timeout_s
         self.explorer_base = f"https://explorer.testnet.near.org/transactions"
         db_path = Path(txlog_path) if txlog_path else Path("evidence/near-testnet/txlog.sqlite3")
@@ -80,6 +82,24 @@ class NearTestnetAdapter:
     # ------------------------------------------------------------------
     # transaction plumbing
     # ------------------------------------------------------------------
+    def _load_agent_wallet(self, contract_id: str | None) -> Any:
+        url = os.environ.get("PROOFARENA_AGENT_SIGNER_URL")
+        if not url:
+            return None
+        from ..near.wallet import HttpWallet, WalletError
+
+        account = os.environ.get("PROOFARENA_AGENT_ACCOUNT")
+        if not account:
+            raise ChainUnavailable(
+                "PROOFARENA_AGENT_SIGNER_URL is set but PROOFARENA_AGENT_ACCOUNT is not"
+            )
+        return HttpWallet(
+            account_id=account,
+            rpc=self.rpc,
+            signer_url=url,
+            contract_id_value=contract_id or "",
+        )
+
     def _tx(
         self,
         kind: str,
@@ -89,13 +109,15 @@ class NearTestnetAdapter:
         deposit_yocto: int = 0,
         bounty_id: int | None = None,
         attempt_id: int | None = None,
+        wallet: Any = None,
     ) -> tuple[Any, dict[str, Any]]:
+        signer = wallet or self.wallet
         try:
-            outcome = self.wallet.call(method, args, deposit_yocto=deposit_yocto, gas=CALL_GAS)
+            outcome = signer.call(method, args, deposit_yocto=deposit_yocto, gas=CALL_GAS)
         except WalletError as exc:
-            raise ChainUnavailable(f"NEAR transaction failed: {exc}") from exc
+            raise _translate_contract_error(method, str(exc)) from exc
         if not outcome.success:
-            raise ChainUnavailable(f"NEAR transaction {method} failed: {outcome.error}")
+            raise _translate_contract_error(method, outcome.error or "")
         receipt = self._record(kind, outcome, bounty_id=bounty_id, attempt_id=attempt_id)
         return success_value(outcome), receipt
 
@@ -183,7 +205,12 @@ class NearTestnetAdapter:
         evidence_commitment_hex: str,
         manifest_sha256: str | None = None,
     ) -> dict[str, Any]:
-        self._assert_signer(signer)
+        agent = self.agent_wallet or self.wallet
+        if signer != agent.account_id:
+            raise ChainUnavailable(
+                f"claim signer {signer!r} does not match the configured agent account "
+                f"{agent.account_id!r} (see PROOFARENA_AGENT_ACCOUNT / the agent token)"
+            )
         if not is_hex64(evidence_commitment_hex):
             raise ParamError("commitment must be 64 lowercase hex characters")
         value, receipt = self._tx(
@@ -196,6 +223,7 @@ class NearTestnetAdapter:
             },
             deposit_yocto=0,
             bounty_id=bounty_id,
+            wallet=agent,
         )
         claim_id = _as_int(value)
         if claim_id is None:
@@ -319,6 +347,10 @@ class NearTestnetAdapter:
                 f"local signer holds {self.wallet.account_id!r}, not {signer!r}; "
                 "the owner's key must be present on this machine"
             )
+
+    @property
+    def agent_account(self) -> str | None:
+        return self.agent_wallet.account_id if self.agent_wallet else None
 
     def _latest_bounty_id(self) -> int | None:
         ids = self.rpc.call_view_optional(self.contract_id, "list_bounty_ids", {}) or []
@@ -444,6 +476,39 @@ class NearTestnetAdapter:
             "contract_id": self.contract_id,
             "rpc": self.rpc.url,
         }
+
+
+# ---------------------------------------------------------------------------
+# error translation
+# ---------------------------------------------------------------------------
+CONTRACT_PANIC_MARKERS = ("FunctionCallError", "ExecutionError", "ActionError", "Smart contract panicked")
+
+
+def _translate_contract_error(method: str, message: str):
+    """A contract rejection is a client error (409), not an unavailable chain (503).
+
+    Example: a second ``request_payout`` is refused by the contract with
+    "bounty is terminal / a settlement attempt is already pending". The caller
+    should see that reason, not "NEAR transaction failed".
+    """
+    text = message or ""
+    if any(marker in text for marker in CONTRACT_PANIC_MARKERS):
+        reason = _extract_panic_reason(text)
+        return StateError(f"contract refused {method}: {reason}")
+    return ChainUnavailable(f"NEAR transaction {method} failed: {text[:300]}")
+
+
+def _extract_panic_reason(text: str) -> str:
+    """Pull the human sentence out of a NEAR function-call error blob."""
+    import re
+
+    match = re.search(r"panicked at [^:]*:\s*([^\"\\]{3,200})", text)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"FunctionCallError[^:]*:\s*([^\"\\]{3,200})", text)
+    if match:
+        return match.group(1).strip()
+    return text.replace("\\n", " ").strip()[:240]
 
 
 # ---------------------------------------------------------------------------

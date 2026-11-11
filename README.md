@@ -16,13 +16,14 @@ one bounty, one winner, native token, testnet-only.
 
 | Verdict | Status |
 |---|---|
-| Local end-to-end workflow | **TESTED_LOCAL** — 124 automated tests + `scripts/e2e_demo.py` |
+| Local end-to-end workflow | **TESTED_LOCAL** — 156 automated tests + `scripts/e2e_demo.py` |
 | Escrow rules (payout/refund/approval) | **TESTED_LOCAL** via the executable reference engine |
 | NEAR testnet adapter + native signer | **OFFLINE-TESTED** — 42 tests; no live transaction sent from this build machine |
 | Rust NEAR contract | **IMPLEMENTED_UNTESTED** — `cargo test` is step 4 of the runbook |
-| NEAR testnet account + signer | **VERIFIED ON CHAIN** — account funded, a real testnet tx executed (see `docs/TESTNET_EVIDENCE.md`) |
-| NEAR testnet contract deployment | **AWAITING OWNER RUN** — needs `cargo test` + `deploy.py` (toolchain + bandwidth) |
-| Overall | **READY FOR TESTNET DEPLOYMENT** — follow `docs/TESTNET_RUNBOOK.md` |
+| NEAR testnet contract | **DEPLOYED** — `proofarena-c23922.testnet`, 230 KB wasm, code hash `3KcVAjtB…` |
+| On-chain lifecycle | **VERIFIED_TESTNET** — fund → claim → verify → approve → payout, exactly once |
+| On-chain refund path | **VERIFIED_TESTNET** — expired bounty refunded after the grace period |
+| Overall | **VERIFIED ON NEAR TESTNET** — receipts and caveats in `docs/TESTNET_EVIDENCE.md` |
 
 Read `communications/STATUS_BOARD.md` for per-task evidence and `docs/QA_MATRIX.md` for the
 executed test matrix. Nothing in this repo is mainnet-ready and no real funds are involved.
@@ -60,7 +61,7 @@ receipts, and the HTTP surface.
 # Python 3.11+ with the pinned dependencies
 pip install -r requirements.txt
 
-# 1. Verify everything (124 tests: escrow invariants, runner isolation, API, web, NEAR plumbing)
+# 1. Verify everything (156 tests: escrow invariants, runner isolation, API, web, NEAR plumbing)
 python -m pytest tests/ -q
 
 # 2. Drive the entire lifecycle and print real receipts
@@ -121,7 +122,7 @@ proofarena/
   wallet/near_signer.py    NEAR testnet signer service: owns the key, enforces an allowlist
   scripts/                 versions, dev server, patch builder, end-to-end demo
   scripts/testnet/         preflight, deploy (build+sign+broadcast), live smoke test
-  tests/                   124 tests
+  tests/                   156 tests
   docs/                    ADRs, QA matrix, threat model
   communications/          status board, decision log, handoffs
 ```

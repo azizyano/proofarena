@@ -50,6 +50,21 @@ class KeyFormatError(ValueError):
     pass
 
 
+def strip_key_prefix(value: str) -> str:
+    """Return the base58 body of a NEAR key, tolerating repeated prefixes.
+
+    Meteor Wallet exports keys as ``ed25519:ed25519:<base58>`` (the prefix is
+    applied twice). Older near-cli files use a single prefix. Both are accepted;
+    the base58 body must be the only thing left.
+    """
+    body = value.strip()
+    while body.startswith("ed25519:"):
+        body = body[len("ed25519:") :]
+    if ":" in body:
+        raise KeyFormatError(f"unexpected key format (stray ':'): {value[:12]}…")
+    return body
+
+
 @dataclass
 class KeyPair:
     _seed: bytes = field(repr=False)
@@ -68,9 +83,7 @@ class KeyPair:
 
     @classmethod
     def from_secret_key(cls, secret: str) -> "KeyPair":
-        if not secret.startswith("ed25519:"):
-            raise KeyFormatError("only ed25519 keys are supported")
-        raw = b58decode(secret.split(":", 1)[1])
+        raw = b58decode(strip_key_prefix(secret))
         if len(raw) == 64:
             seed, embedded = raw[:32], raw[32:]
         elif len(raw) == 32:

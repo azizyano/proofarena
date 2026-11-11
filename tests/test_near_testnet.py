@@ -18,7 +18,12 @@ from starlette.testclient import TestClient
 
 from conftest import ROOT
 from proofarena.chain.ledger import open_chain
-from proofarena.chain.near_testnet import NearTestnetAdapter, _map_bounty, _map_claim
+from proofarena.chain.near_testnet import (
+    NearTestnetAdapter,
+    _map_bounty,
+    _map_claim,
+    _translate_contract_error,
+)
 from proofarena.chain.models import BountyState, ClaimState
 from proofarena.errors import ChainUnavailable
 from proofarena.near.base58 import b58decode, b58encode
@@ -95,6 +100,22 @@ def test_key_from_near_secret_key_and_public_key_match():
     assert pair.public_key_ed25519.startswith("ed25519:")
     assert "seed" not in repr(pair) or "<redacted>" in repr(pair)
     assert b58encode(seed) not in repr(pair)
+
+
+def test_key_accepts_double_prefixed_meteor_export():
+    """Meteor exports ed25519:ed25519:<base58>; near-cli uses one prefix."""
+    from proofarena.near.signing import strip_key_prefix
+
+    seed = bytes(range(32))
+    derived = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes_raw()
+    body = b58encode(seed + derived)
+    single = KeyPair.from_secret_key("ed25519:" + body)
+    double = KeyPair.from_secret_key("ed25519:ed25519:" + body)
+    assert single.public_key == double.public_key == derived
+    assert strip_key_prefix("ed25519:ed25519:" + body) == body
+    assert strip_key_prefix("ed25519:" + body) == body
+    with pytest.raises(ValueError):
+        strip_key_prefix("ed25519:abc:def")
 
 
 def test_key_refuses_mismatched_public_key():
@@ -255,6 +276,8 @@ def test_rpc_view_call_decodes_base64_json():
         "state": "Open",
     }
     sent = session.calls[0]
+    # `call` is rejected by current nearcore; `call_function` is the valid variant.
+    assert sent["params"]["request_type"] == "call_function", "regression: invalid query variant"
     assert sent["params"]["method_name"] == "get_bounty"
     assert json.loads(base64.b64decode(sent["params"]["args_base64"])) == {"bounty_id": 1}
 
@@ -592,6 +615,7 @@ def signer_client(monkeypatch, workdir: Path, key: KeyPair):
     app = near_signer.create_signer_app(state, allowed_origins=["http://127.0.0.1:8787"])
     with TestClient(app) as client:
         client.calls = calls  # type: ignore[attr-defined]
+        client.signer_state = state  # type: ignore[attr-defined]
         yield client
 
 
@@ -721,3 +745,156 @@ def test_adapter_create_bounty_records_real_tx_hash(workdir: Path, monkeypatch):
     assert result["receipts"][0]["explorer_url"].endswith("TXCREATE")
     assert result["receipts"][0]["simulated"] is False
     assert adapter.receipts(bounty_id=7)[0]["receipt_id"] == "TXCREATE"
+
+
+# ---------------------------------------------------------------------------
+# agent signer routing (claims must be signed by the auditor, not the owner)
+# ---------------------------------------------------------------------------
+class StubAgentWallet:
+    account_id = "auditor.testnet"
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+        self.calls: list[tuple[str, dict]] = []
+
+    def call(self, method, args, *, deposit_yocto=0, gas=0):
+        self.calls.append((method, args))
+        # commit_claim returns the new claim id
+        return TxOutcome(
+            tx_hash="TXCLAIM",
+            success=True,
+            status={"SuccessValue": base64.b64encode(b"5").decode("ascii")},
+            logs=[],
+        )
+
+
+def test_claims_route_through_the_agent_signer(workdir: Path, monkeypatch):
+    import proofarena.near.wallet as wallet_module
+
+    monkeypatch.setenv("PROOFARENA_AGENT_SIGNER_URL", "http://127.0.0.1:8789")
+    monkeypatch.setenv("PROOFARENA_AGENT_ACCOUNT", "auditor.testnet")
+    monkeypatch.setattr(wallet_module, "HttpWallet", StubAgentWallet)
+
+    class OwnerWallet:
+        account_id = ACCOUNT
+        rpc = None
+
+        def call(self, *a, **k):
+            raise AssertionError("owner wallet must not sign claims")
+
+    adapter = _adapter(workdir, monkeypatch, OwnerWallet())
+    adapter.rpc = type(
+        "R",
+        (),
+        {
+            "view_call": staticmethod(lambda c, m, a=None: {"claim_id": 5, "bounty_id": 9, "submitter": "auditor.testnet", "evidence_commitment_hex": "b" * 64, "approved": False, "paid": False, "submitted_ns": 1}),
+            "call_view_optional": staticmethod(
+                lambda c, m, a=None: {
+                    "claim_id": 5,
+                    "bounty_id": 9,
+                    "submitter": "auditor.testnet",
+                    "evidence_commitment_hex": "b" * 64,
+                    "approved": False,
+                    "paid": False,
+                    "submitted_ns": 1,
+                }
+                if m == "get_claim"
+                else []
+            ),
+            "tx_status": staticmethod(lambda h, s: {"status": {}}),
+            "url": "https://rpc.testnet.near.org",
+        },
+    )()
+    result = adapter.commit_claim(
+        signer="auditor.testnet", bounty_id=9, evidence_commitment_hex="b" * 64
+    )
+    assert result["receipts"][0]["receipt_id"] == "TXCLAIM"
+    assert adapter.agent_wallet.calls[0][0] == "commit_claim"
+    assert adapter.agent_account == "auditor.testnet"
+
+
+def test_claim_signer_mismatch_is_refused(workdir: Path, monkeypatch):
+    import proofarena.near.wallet as wallet_module
+
+    monkeypatch.setenv("PROOFARENA_AGENT_SIGNER_URL", "http://127.0.0.1:8789")
+    monkeypatch.setenv("PROOFARENA_AGENT_ACCOUNT", "auditor.testnet")
+    monkeypatch.setattr(wallet_module, "HttpWallet", StubAgentWallet)
+
+    class OwnerWallet:
+        account_id = ACCOUNT
+        rpc = None
+
+    adapter = _adapter(workdir, monkeypatch, OwnerWallet())
+    with pytest.raises(ChainUnavailable) as exc:
+        adapter.commit_claim(signer="someone.else", bounty_id=1, evidence_commitment_hex="c" * 64)
+    assert "does not match the configured agent account" in str(exc.value)
+
+
+def test_agent_signer_requires_an_account(workdir: Path, monkeypatch):
+    import proofarena.near.wallet as wallet_module
+
+    monkeypatch.setenv("PROOFARENA_AGENT_SIGNER_URL", "http://127.0.0.1:8789")
+    monkeypatch.delenv("PROOFARENA_AGENT_ACCOUNT", raising=False)
+    monkeypatch.setattr(wallet_module, "HttpWallet", StubAgentWallet)
+
+    class OwnerWallet:
+        account_id = ACCOUNT
+        rpc = None
+
+    with pytest.raises(ChainUnavailable):
+        _adapter(workdir, monkeypatch, OwnerWallet())
+
+
+# ---------------------------------------------------------------------------
+# error translation: a contract refusal is the caller's problem (409), not an
+# unavailable chain (503)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+    "message",
+    [
+        '{"ActionError": {"kind": {"FunctionCallError": {"ExecutionError": "Smart contract panicked: bounty is terminal; cannot request payout"}}}}',
+        "Smart contract panicked: a settlement attempt is already pending for this bounty",
+        "FunctionCallError: ExecutionError",
+    ],
+)
+def test_contract_refusal_maps_to_state_error(message):
+    from proofarena.errors import StateError
+
+    error = _translate_contract_error("request_payout", message)
+    assert isinstance(error, StateError)
+    assert error.code == "E_STATE"
+    assert "request_payout" in error.message
+
+
+def test_transport_failure_maps_to_chain_unavailable():
+    from proofarena.errors import ChainUnavailable
+
+    error = _translate_contract_error("request_payout", "RPC request failed: connection reset")
+    assert isinstance(error, ChainUnavailable)
+
+
+def test_second_payout_message_is_preserved():
+    message = 'Smart contract panicked: a settlement attempt is already pending for this bounty'
+    error = _translate_contract_error("request_payout", message)
+    assert "already pending" in error.message
+
+
+# ---------------------------------------------------------------------------
+# the signer must never answer with a non-JSON 500 when the RPC is flaky
+# ---------------------------------------------------------------------------
+def test_signer_returns_json_when_the_wallet_explodes(signer_client):
+    """A dropped RPC connection must come back as JSON 502, never an HTML 500."""
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("RemoteDisconnected: connection aborted")
+
+    signer_client.signer_state.wallet.call = boom
+    response = signer_client.post(
+        "/call", json={"contract_id": CONTRACT, "method": "request_payout", "args": {}}
+    )
+    assert response.status_code == 502
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"] == "E_TX"
+    assert "RemoteDisconnected" in body["message"]
+    assert "ed25519:" not in response.text

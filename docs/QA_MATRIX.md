@@ -7,7 +7,7 @@ Command for the whole suite:
 
 ```
 python -m pytest tests/ -q
-→ 134 passed       (escrow, runner, API, web, signer, NEAR plumbing, account bootstrap)
+→ 156 passed       (escrow, runner, API, web, signer, NEAR plumbing, account, build config)
 ```
 
 Fresh-tree check: the committed tree was exported with `git archive HEAD` (75 files, no caches, no
@@ -116,8 +116,12 @@ execution (no funds move); `--dry-run` prints the round-trip decode first.
 | `tx` lookup by hash | PASS | same tx, `final_execution_status: FINAL` |
 | API in `near-testnet` mode boots, banner suppressed | PASS | live `/api/meta` (`chain_is_simulated=false`), `/health` |
 | Signer refuses/forwards calls correctly | PASS | live: register 200, fund 503 `CodeDoesNotExist`, audit log entries |
-| Contract deployed | **NOT RUN** | wasm never compiled here (toolchain download ~15 KB/s) |
-| On-chain lifecycle (create/approve/payout) | **NOT RUN** | needs the deployed contract |
+| Contract deployed | **PASS** | [`9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61`](https://explorer.testnet.near.org/transactions/9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61), code hash `3KcVAjtB…` |
+| On-chain lifecycle: fund → claim → review → approve → payout | **PASS** | bounty #3, tx `4WzDB89V…`, `2Kpw6rLZ…`, `FpwgPgaq…`, `Dfzioifs…`, `AVwQZ4md…` |
+| Payout settled exactly once, callback observed | **PASS** | `payout_completed` log inside `AVwQZ4md…`; state `Paid`, escrow 0 |
+| Second payout refused on chain | **PASS** | `409 E_STATE` from the contract |
+| On-chain refund after grace period | **PASS** | bounty #4, `H5eGNida…`; state `Refunded` |
+| Early refund refused on chain | **PASS** | `409 E_STATE`, no transaction emitted |
 
 Details: `docs/TESTNET_EVIDENCE.md`.
 

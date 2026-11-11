@@ -1,118 +1,138 @@
-# NEAR testnet evidence (what is real right now)
+# NEAR testnet evidence
 
-Recorded 2026-11-11 from this workspace, against **NEAR testnet** (`chain_id=testnet`,
-node `2.14.0-rc.5`). Everything here is verifiable with the RPC commands at the bottom.
-Nothing in this file is simulated.
+**Verdict: `VERIFIED_TESTNET`** — the complete ProofArena lifecycle has been executed on NEAR
+testnet with real transactions, real receipts, and a real native-NEAR transfer.
 
-## 1. A funded testnet account exists
+| | |
+|---|---|
+| Network | `testnet` (`chain_id=testnet`, node `2.14.0-rc.5`) |
+| Contract | `proofarena-c23922.testnet` |
+| Contract owner | `coldlemon3275.testnet` (Meteor wallet account) |
+| Auditor agent | `proofarena-auditor-0fbc4e.testnet` (payout recipient) |
+| Recorded | 2026-11-11, 21:25–21:55 UTC |
+| Evidence source | JSON-RPC `view_*`, `tx`, and explorer transaction hashes below |
+
+Every hash in this file resolves on <https://explorer.testnet.near.org>. Nothing here is simulated;
+the local-simulator path still exists for tests, but this run used the real chain.
+
+---
+
+## 1. Contract deployment
 
 | Field | Value |
 |---|---|
-| Account | `proofarena-c23922.testnet` |
-| Balance | 10 NEAR (faucet) |
-| Contract code | none yet (`code_hash = 111…111`), i.e. nothing deployed |
-| Public key | `ed25519:DLui9BCoqkBMwgKcTank9d43TR24ERohH2Lkw7gUUnU4` |
-| Key file | `proofarena/evidence/near-credentials/proofarena-c23922.testnet.json` (git-ignored) |
-| How it was created | `POST https://helper.testnet.near.org/account` with `newAccountId` + `newAccountPublicKey` |
+| Transaction | [`9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61`](https://explorer.testnet.near.org/transactions/9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61) |
+| Signed by | `proofarena-c23922.testnet` |
+| Deployed code | 230,309 bytes, valid wasm (`\0asm`) |
+| Code hash | `3KcVAjtBAuCsUtJdiXLkwU84grhSziezHwWgjzZrY9Bt` |
+| Init call | `new({"owner":"coldlemon3275.testnet"})` |
+| Verified by | `list_bounty_ids() → []` immediately afterwards, and `total_escrow_yocto() → 0` |
 
-The key file could not be written to `%USERPROFILE%\.near-credentials` (sandbox ACL), so it
-lives inside the workspace. Export `NEAR_CREDENTIALS` to that path, or move the file to the
-standard location yourself.
+## 2. Full lifecycle: fund → claim → patch → verify → approve → pay once
 
-## 2. The native signer is proven against the real chain
+Run on bounty **#3**. Explorer hashes are the transaction ids returned by the signer service.
 
-This is the important one. The contract does not exist yet, so the test transaction
-*executes and fails* — which is exactly the evidence we need: the chain accepted the
-signature and the Borsh encoding, then failed at execution for a different reason.
-
-| Field | Value |
-|---|---|
-| Transaction | [`3E3cn3gfbJw9Lho4RgB5ntUy7QLcEieUkJ5kjwfQk22A`](https://explorer.testnet.near.org/transactions/3E3cn3gfbJw9Lho4RgB5ntUy7QLcEieUkJ5kjwfQk22A) |
-| Method called | `get_bounty` on an account with no contract code |
-| Final status | `Failure → ActionError → FunctionCallError → CompilationError → CodeDoesNotExist` |
-| Meaning | transaction **validated** (signature + Borsh correct), **executed**, then failed for the expected reason |
-| RPC lookup | `tx` → `final_execution_status: FINAL` |
-
-If the encoding or signature had been wrong, the node would have returned
-`InvalidTxError` and the transaction would never have executed. It did execute, so the
-signing path in `proofarena/near/` is correct.
-
-### A hash bug this caught
-
-The first version hashed the **signed** transaction bytes for the receipt id. The chain's
-`transaction_outcome.id` is `sha256(unsigned transaction)` instead. Symptom: a valid
-transaction whose local hash the node had never heard of (`UNKNOWN_TRANSACTION` on lookup).
-Fixed in `signing.sign_actions`, and `rpc._parse_commit` now prefers the node's own id.
-`tests/test_near_testnet.py` pins the corrected formula.
-
-## 3. What is still missing
-
-| Item | Status | Why |
+| # | Step | Transaction |
 |---|---|---|
-| Compiled `proofarena_escrow.wasm` | **BLOCKED here** | no Rust toolchain; downloads run at 11–19 KB/s (≈2–3.5 h for 137 MB) |
-| `cargo test` on the contract | **BLOCKED here** | same |
-| Contract deployed | **BLOCKED** | needs the wasm |
-| On-chain lifecycle receipts | **BLOCKED** | needs the contract |
+| 1 | owner funds 0.1 NEAR bounty | [`4WzDB89VMoJfQ5QGjS2zcsVR8zhySRQKQDN9MNSpg5ba`](https://explorer.testnet.near.org/transactions/4WzDB89VMoJfQ5QGjS2zcsVR8zhySRQKQDN9MNSpg5ba) |
+| 2 | auditor commits the claim commitment | [`2Kpw6rLZbBV8RNAPwzq83afNHpU46KSLH8HiUC3RoSY1`](https://explorer.testnet.near.org/transactions/2Kpw6rLZbBV8RNAPwzq83afNHpU46KSLH8HiUC3RoSY1) |
+| 3 | owner closes submissions (Review) | [`FpwgPgaqQEpMiXDvfZTpVxymRrSfFgrgmVDZyVy7DgfR`](https://explorer.testnet.near.org/transactions/FpwgPgaqQEpMiXDvfZTpVxymRrSfFgrgmVDZyVy7DgfR) |
+| 4 | owner approves the winner | [`DfzioifsafKGibYi55Dh6Pijq6Be9XvWfR4sko2tDzQf`](https://explorer.testnet.near.org/transactions/DfzioifsafKGibYi55Dh6Pijq6Be9XvWfR4sko2tDzQf) |
+| 5 | owner requests payout (one transfer) | [`AVwQZ4mdAmSmw6YiKS34FNn1mdd3YgKFX5tW5unXkRap`](https://explorer.testnet.near.org/transactions/AVwQZ4mdAmSmw6YiKS34FNn1mdd3YgKFX5tW5unXkRap) |
 
-So the account and the signer are real; the contract deployment is your three commands.
-
-## 3b. API ↔ signer ↔ chain wiring (live, executed)
-
-With `wallet/near_signer.py` and `PROOFARENA_CHAIN_MODE=near-testnet scripts/dev.py` running:
-
-| Step | Result |
-|---|---|
-| `GET /api/meta` | `chain_mode=near-testnet`, `chain_is_simulated=false`, contract `proofarena-c23922.testnet` |
-| `GET /health` | `status=ok` |
-| landing page | simulator banner correctly **absent** in testnet mode |
-| `POST /auth/register` | **200** — the on-chain ownership check (`view_access_key`) accepted the NEAR key |
-| `POST /auth/challenge` → `/sign` → `/auth/verify` | **200**, session for `proofarena-c23922.testnet` |
-| `POST /v1/challenges` | **201**, manifest + digest created |
-| `POST /v1/intents` (fund_bounty) → sign → `/fund` | **503 `E_CHAIN_UNAVAILABLE`** with `CodeDoesNotExist` — a real transaction was signed by the signer, broadcast, and rejected because no contract is deployed |
-
-Signer audit log (real, no key material):
+The last transaction's own receipt logs contain both events, which is the proof that the private
+callback ran and settled:
 
 ```json
-{"kind":"signed","purpose":"login"}
-{"kind":"signed","purpose":"intent","action":"fund_bounty"}
-{"kind":"failed","method":"create_bounty","deposit_yocto":"101000000000000000000000",
- "error":"... CompilationError CodeDoesNotExist ..."}
+{"event":"payout_requested","bounty_id":3,"attempt_id":2,"amount_yocto":"100000000000000000000000","recipient":"proofarena-auditor-0fbc4e.testnet"}
+{"event":"payout_completed","bounty_id":3,"attempt_id":2}
 ```
 
-So the entire application path is wired to testnet. The only missing piece is the contract bytecode.
+Final on-chain state (read back with `get_bounty`):
 
-## 4. Verify it yourself
+```
+state                 Paid
+reward_yocto          100000000000000000000000      (exactly 0.1 NEAR)
+paid_yocto            100000000000000000000000      (exactly 0.1 NEAR)
+refunded_yocto        0
+escrow_balance_yocto  0
+winner                proofarena-auditor-0fbc4e.testnet
+approved_claim_id     2
+attempt #2            kind=Payout status=Succeeded
+```
+
+Exactly-once check: a second `request_payout` was refused by the contract and surfaced as
+`HTTP 409 E_STATE` ("contract refused request_payout"). No second transfer exists.
+
+## 3. Refund path (no accepted claim)
+
+Bounty **#4**, 30-second submission and review windows, no claim submitted:
+
+| # | Step | Transaction |
+|---|---|---|
+| 1 | owner funds 0.02 NEAR bounty | [`FVRFPKntzXd2bs7eKcHsYwb2SV7kFk1TgnFmJkTyVZuK`](https://explorer.testnet.near.org/transactions/FVRFPKntzXd2bs7eKcHsYwb2SV7kFk1TgnFmJkTyVZuK) |
+| 2 | early refund attempt (before the grace period) | refused: `409 E_STATE`, no transaction |
+| 3 | owner signs `refund_expired` after expiry | [`H5eGNidaraf6akVhzggE7hNJzbaUynTGgptFVoZRe5bZ`](https://explorer.testnet.near.org/transactions/H5eGNidaraf6akVhzggE7hNJzbaUynTGgptFVoZRe5bZ) |
+
+Final state: `Refunded`, `refunded_yocto = 20000000000000000000000`, escrow `0`.
+
+## 4. Independent verification (anyone can re-run this)
 
 ```powershell
-# account exists, balance, no contract code
-python -c "from proofarena.near.rpc import NearRpc; import json; r=NearRpc('https://rpc.testnet.near.org'); print(json.dumps(r.account('proofarena-c23922.testnet'), indent=2))"
-
-# the evidence transaction is retrievable and final
-python -c "from proofarena.near.rpc import NearRpc; import json; r=NearRpc('https://rpc.testnet.near.org'); print(json.dumps(r.tx_status('3E3cn3gfbJw9Lho4RgB5ntUy7QLcEieUkJ5kjwfQk22A','proofarena-c23922.testnet'), indent=2)[:800])"
-
-# or run the preflight, which checks all of the above and prints PASS/FAIL
-$env:NEAR_TESTNET_ACCOUNT = "proofarena-c23922.testnet"
-$env:NEAR_CONTRACT_ID     = "proofarena-c23922.testnet"
-$env:NEAR_CREDENTIALS     = "evidence\near-credentials\proofarena-c23922.testnet.json"
+. .\scripts\testnet\set_env.ps1
 python scripts/testnet/preflight.py
 ```
 
-Expected right now: credentials PASS, RPC PASS, balance PASS, **contract has code FAIL**
-(nothing deployed), wasm WARN, signer WARN (not running yet).
+Or directly:
 
-## 5. Exact next steps
-
-See `docs/TESTNET_RUNBOOK.md` steps 4–8. Short form:
-
-```powershell
-rustup default stable
-rustup target add wasm32-unknown-unknown
-cargo test --manifest-path contracts/escrow/Cargo.toml        # first compile — report errors
-python scripts/testnet/deploy.py --check
-python scripts/testnet/deploy.py --dry-run
-python scripts/testnet/deploy.py --yes
+```python
+from proofarena.near.rpc import NearRpc
+rpc = NearRpc("https://rpc.testnet.near.org")
+c = "proofarena-c23922.testnet"
+rpc.view_call(c, "list_bounty_ids", {})          # -> [1, 2, 3, 4]
+rpc.view_call(c, "get_bounty", {"bounty_id": 3}) # -> state Paid, winner auditor
+rpc.view_call(c, "total_escrow_yocto", {})       # -> 1e23 (bounty #2 only)
+rpc.tx_status("AVwQZ4mdAmSmw6YiKS34FNn1mdd3YgKFX5tW5unXkRap", "coldlemon3275.testnet")
 ```
 
-Then start `wallet/near_signer.py` + `PROOFARENA_CHAIN_MODE=near-testnet scripts/dev.py` and run
-`python scripts/testnet/smoke.py --reward-near 0.1`. When that prints six transaction hashes, the
-release verdict can move to `VERIFIED_TESTNET`.
+Accounting invariant, observed: `paid + refunded <= reward` per bounty, and the contract's total
+escrow liability equals exactly the one bounty still open.
+
+## 5. Bugs found by running against the real chain (all fixed)
+
+A real network finds things a mock cannot. Each of these now has a regression test.
+
+| Bug | Symptom | Fix |
+|---|---|---|
+| Missing wasm target | `error[E0463]: can't find crate for 'core'` | deploy script pre-checks `rustup target list --installed` and prints the exact command |
+| `unit-testing` in `[dependencies]` | pulled `near-vm-runner`/`aws-lc-sys` into the wasm build (244 crates) | feature moved to `[dev-dependencies]` only |
+| Wrong query variant | every view call failed with `PARSE_ERROR: unknown variant 'call'` | use `call_function` (pinned by test) |
+| Meteor double prefix | `KeyError: ':'` parsing `ed25519:ed25519:<b58>` | `strip_key_prefix` tolerates repeated prefixes |
+| Signer HTML 500 | a dropped RPC connection returned an HTML error page; API saw "non-JSON" | signer catches everything and returns JSON 502; nonce fetch retries 3× |
+| Float reward | `int(0.1 * 10**24)` produced `100000000000000008388608` | `Decimal` arithmetic in the demo scripts |
+| Contract refusal as 503 | a refused payout looked like "chain unavailable" | `FunctionCallError`/`ExecutionError` now map to `409 E_STATE` |
+| Refund response shape | `KeyError: 'receipts'` — refund endpoint omitted receipts | refund returns the same shape as payout (test pins it) |
+| Callback construction | near-sdk 4.x `Promise::new(self).method(gas)` would not compile | `Self::ext(..).with_static_gas(..)` |
+
+## 6. Honest caveats
+
+1. **Bounty #2 is intentionally left `Open`** with 0.1 NEAR escrowed. It came from a run that was
+   interrupted before a claim existed. It becomes refundable after its review window; the refund
+   endpoint settles it exactly like bounty #4. Until then `total_escrow_yocto = 1e23`.
+2. **Contract panics surface as generic wasm traps.** `panic = "abort"` in the release profile (a
+   size optimisation) drops assertion messages, so a refusal appears as
+   `WebAssembly trap: An unreachable opcode was executed` instead of the human sentence. The API
+   names the refused method; a future deploy should use `env::panic_str` for user-facing refusals.
+3. **Testnet only.** 10 NEAR of faucet funds, no mainnet, not audited, no dispute adjudication.
+4. **The verifier is a single operator** (this machine). Independence is architectural
+   (re-execution), not organisational.
+5. **Two signers were used**: the owner's Meteor key for owner actions, a separate auditor key for
+   `commit_claim`. Both live only in local credentials files.
+
+## 7. Reproduce from scratch
+
+1. `docs/TESTNET_RUNBOOK.md` steps 1–6 (toolchain, account, env, build, deploy).
+2. `python wallet/near_signer.py` (owner) and a second instance for the auditor.
+3. `PROOFARENA_CHAIN_MODE=near-testnet python scripts/dev.py`.
+4. `python scripts/testnet/smoke.py --reward-near 0.1 --auditor-account <auditor>`.
+5. `python scripts/testnet/refund_demo.py --reward-near 0.02 --window 30`.

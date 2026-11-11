@@ -83,7 +83,7 @@ def load_key(account_id: str, *, network: str = "testnet", path: Path | None = N
         payload = json.loads(resolved.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise WalletError(f"cannot read credentials file {resolved}: {exc}") from exc
-    secret = payload.get("private_key") or payload.get("secret_key")
+    secret = payload.get("private_key") or payload.get("secret_key") or payload.get("privateKey")
     if not secret:
         raise WalletError(f"credentials file {resolved} has no private_key field")
     embedded_account = payload.get("account_id")
@@ -109,8 +109,13 @@ class NativeWallet:
         deposit_yocto: int = 0,
         gas: int = DEFAULT_GAS,
     ) -> SignedTransaction:
-        nonce = self._next_nonce()
-        block_hash = self.rpc.block_hash()
+        try:
+            nonce = self._next_nonce()
+            block_hash = self.rpc.block_hash()
+        except RpcError as exc:
+            raise WalletError(
+                f"cannot reach the NEAR RPC to build {method_name}: {exc}"
+            ) from exc
         return sign_transaction(
             key=self.key,
             signer_id=self.account_id,
@@ -129,10 +134,17 @@ class NativeWallet:
             raise WalletError("NEAR_CONTRACT_ID is not set")
         return contract
 
-    def _next_nonce(self) -> int:
-        access = self.rpc.view_access_key(self.account_id, self.key.public_key_ed25519)
-        raw = access["nonce"]
-        return int(raw) + 1
+    def _next_nonce(self, attempts: int = 3) -> int:
+        last: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                access = self.rpc.view_access_key(self.account_id, self.key.public_key_ed25519)
+                return int(access["nonce"]) + 1
+            except RpcError as exc:
+                last = exc
+                if attempt < attempts:
+                    time.sleep(0.8 * attempt)
+        raise RpcError(f"could not read the access-key nonce: {last}", code="E_RPC_NONCE")
 
     def call(
         self,
@@ -306,8 +318,9 @@ class HttpWallet:
         try:
             body = response.json()
         except ValueError as exc:
+            snippet = (response.text or "")[:160].replace("\n", " ")
             raise WalletError(
-                f"signer returned non-JSON (HTTP {response.status_code})"
+                f"signer returned non-JSON (HTTP {response.status_code}): {snippet}"
             ) from exc
         if response.status_code != 200:
             raise WalletError(f"signer refused the call: {body.get('message', body)}")

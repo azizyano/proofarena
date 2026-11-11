@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -54,12 +55,18 @@ class NearRpc:
         self._session = session or requests.Session()
 
     # ------------------------------------------------------------------
-    def _post(self, method: str, params: Any) -> dict[str, Any]:
+    def _post(self, method: str, params: Any, *, retries: int = 0) -> dict[str, Any]:
         body = {"jsonrpc": "2.0", "id": "proofarena", "method": method, "params": params}
-        try:
-            response = self._session.post(self.url, json=body, timeout=self.timeout_s)
-        except requests.RequestException as exc:
-            raise RpcError(f"RPC request failed: {exc}", code="E_RPC_TRANSPORT") from exc
+        attempt = 0
+        while True:
+            try:
+                response = self._session.post(self.url, json=body, timeout=self.timeout_s)
+                break
+            except requests.RequestException as exc:
+                if attempt >= retries:
+                    raise RpcError(f"RPC request failed: {exc}", code="E_RPC_TRANSPORT") from exc
+                attempt += 1
+                time.sleep(0.7 * attempt)
         try:
             payload = response.json()
         except ValueError as exc:
@@ -74,10 +81,10 @@ class NearRpc:
 
     # ------------------------------------------------------------------
     def status(self) -> dict[str, Any]:
-        return self._post("status", [])
+        return self._post("status", [], retries=2)
 
     def block_hash(self, finality: str = "final") -> bytes:
-        result = self._post("block", {"finality": finality})
+        result = self._post("block", {"finality": finality}, retries=2)
         encoded = result.get("header", {}).get("hash")
         if not encoded:
             raise RpcError("block response had no hash", code="E_RPC_FORMAT")
@@ -97,6 +104,7 @@ class NearRpc:
                 "account_id": account_id,
                 "public_key": public_key,
             },
+            retries=2,
         )
         if "nonce" not in result:
             raise RpcError(
@@ -110,6 +118,7 @@ class NearRpc:
         result = self._post(
             "query",
             {"request_type": "view_account", "finality": "final", "account_id": account_id},
+            retries=2,
         )
         if "amount" not in result:
             raise RpcError(f"account {account_id} does not exist or has no balance", data=result)
@@ -119,7 +128,10 @@ class NearRpc:
         result = self._post(
             "query",
             {
-                "request_type": "call",
+                # Current nearcore accepts `call_function` only; the older `call`
+                # value is rejected with a PARSE_ERROR. Verified against testnet
+                # node 2.14.0-rc.5 on 2026-11-11.
+                "request_type": "call_function",
                 "finality": "final",
                 "account_id": account_id,
                 "method_name": method_name,
@@ -127,6 +139,7 @@ class NearRpc:
                     json.dumps(args or {}, separators=(",", ":"), sort_keys=True).encode("utf-8")
                 ).decode("ascii"),
             },
+            retries=2,
         )
         raw = result.get("result")
         if raw is None:
