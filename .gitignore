@@ -37,3 +37,16 @@ pytest-cache-files-*/
 .npm-cache/
 .npm-probe/
 
+# Defence in depth: credentials and keys that must never be committed
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.secret
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.ssh/
+**/near-credentials/
+*credentials*.json

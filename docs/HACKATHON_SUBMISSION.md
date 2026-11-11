@@ -112,28 +112,26 @@ stills if you have time; `docs/DEMO_SCRIPT.md` has the beats.
 
 ## 4. Push the repository (public)
 
-The repo already has a clean history, an MIT license, no secrets, and 176 passing tests.
+Status: **already public** at <https://github.com/azizyano/proofarena> (default branch `master`).
+To publish the latest commits and the release tag:
 
 ```powershell
 cd C:\Users\Yano\OneDrive\Documents\deepseek-harness\default-workspace\proofarena
-
-# 1. create an empty public repo on github.com first (no README)
-git remote add origin https://github.com/<you>/proofarena.git
-git branch -M main
-git push -u origin main
-git tag -a v0.1.0-hackathon -m "NEAR Hackathon submission"
+git push origin master
 git push origin v0.1.0-hackathon
 ```
 
-Before pushing, confirm nothing sensitive is tracked:
+Before any push, confirm nothing sensitive is tracked (expect no output):
 
 ```powershell
 git ls-files | Select-String -Pattern "credential|\.env$|key\.json|evidence/"
 ```
 
-Expect **no output**. `evidence/` (databases, generated keys, artifacts) is git-ignored.
+`evidence/` (databases, generated keys, artifacts) is git-ignored, and the history has been audited:
+no private key, token or seed appears in any commit. See `SECURITY.md` for where the demo keys
+actually live.
 
-Then set the repo description to the short pitch, and add topics:
+Then set the repo description to the short pitch and add topics:
 `near`, `near-protocol`, `ai-agents`, `escrow`, `security`, `rust`, `near-sdk`, `hackathon`.
 
 ## 5. Submit the form
