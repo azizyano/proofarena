@@ -1,0 +1,20 @@
+{
+  "name": "ProofArena (Rust + wasm32 + Python)",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "postCreateCommand": "rustup target add wasm32-unknown-unknown && python -m pip install --upgrade pip && pip install -r requirements.txt || true",
+  "postStartCommand": "echo 'Ready. Try: cargo test --manifest-path contracts/escrow/Cargo.toml'",
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "ms-python.python"],
+      "settings": {
+        "rust-analyzer.cargo.target": "wasm32-unknown-unknown"
+      }
+    }
+  },
+  "remoteUser": "vscode"
+}

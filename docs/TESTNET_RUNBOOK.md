@@ -130,15 +130,37 @@ Notes:
 
 ## 3. Point the environment at your account
 
-PowerShell (current session only — never committed):
+Environment variables live only in **one PowerShell window**. Open PowerShell, `cd` to the repo,
+then paste this block:
 
 ```powershell
-$env:NEAR_TESTNET_ACCOUNT = "proofarena-demo-yourname.testnet"
-$env:NEAR_CONTRACT_ID     = $env:NEAR_TESTNET_ACCOUNT   # deploy to the same account
+$env:NEAR_TESTNET_ACCOUNT = "proofarena-c23922.testnet"
+$env:NEAR_CONTRACT_ID     = $env:NEAR_TESTNET_ACCOUNT
 $env:NEAR_RPC_URL         = "https://rpc.testnet.near.org"
+$env:PROOFARENA_SIGNER_URL = "http://127.0.0.1:8788"
+$env:NEAR_CREDENTIALS     = "evidence\near-credentials\proofarena-c23922.testnet.json"
 ```
 
-Both values must end in `.testnet`. Every script refuses anything else.
+Both account values must end in `.testnet`. Every script refuses anything else.
+
+### Optional shortcut
+
+`scripts/testnet/set_env.ps1` sets the same variables. Two notes:
+
+1. Windows may refuse to run local `.ps1` files if the file carries a "downloaded" mark, and this
+   repo's scripts are not code-signed. If you see *"is not digitally signed"*, either allow scripts
+   for this window only:
+
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+   . .\scripts\testnet\set_env.ps1
+   ```
+
+   or just paste the block above - nothing needs the script.
+2. It must be **dot-sourced** (`. .\path\script.ps1`, note the leading dot) or the variables
+   disappear when the script ends.
+
+Everything else in this repo is Python, so execution policy does not affect it.
 
 Check before going further:
 
@@ -153,6 +175,13 @@ parsing) should be `PASS`. Send me this output if anything unexpected is `FAIL`.
 ---
 
 ## 4. Build the contract (the only step that can surprise us)
+
+> **Prefer a guided build?** `cargo near build non-reproducible-wasm` (from
+> [cargo-near](https://github.com/near/cargo-near)) builds with ABI + `wasm-opt`, and
+> `cargo near --teach-me` explains each step. Install it with:
+> `irm https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.ps1 | iex`.
+> See `docs/DEPLOY_OPTIONS.md`. Whatever builds the wasm, the deploy step below still works -
+> point it at the artifact with `--wasm`.
 
 The contract in `contracts/escrow/src/lib.rs` has **never been compiled** — the build
 environment had no Rust toolchain. Expect the compiler to find something on the first
