@@ -69,6 +69,18 @@ container, never into git).
 Useful when Rust installation is the obstacle. Caveat: the testnet key would then live in a
 cloud VM, so use a throwaway testnet account for that path.
 
+## Using a browser wallet (Meteor, Nightly, MyNearWallet)
+
+Browser wallets sign **inside their own UI**. They cannot sign for a Python script, cannot deploy
+a contract, and cannot be the signer for this server-side flow. Two ways to include one:
+
+* **Export the account's private key once** and point `NEAR_CREDENTIALS` at it (Layout A in the
+  runbook). The wallet still works normally afterwards; both just share the key.
+* **Wallet Selector** (`@near-wallet-selector/*`): the browser signs each action and the server
+  never holds a key. This is the "proper" dapp architecture and the right long-term answer, but it
+  needs a JS build (React or ESM bundling) and browser testing, so it is out of scope for this
+  server-rendered UI.
+
 ## What not to expect
 
 * No browser IDE compiles Rust to NEAR wasm. Any tutorial claiming so is either using a

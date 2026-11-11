@@ -174,6 +174,83 @@ parsing) should be `PASS`. Send me this output if anything unexpected is `FAIL`.
 
 ---
 
+## 3b. Using your own Meteor account as the owner
+
+Checked on-chain (2026-11-11):
+
+| Account | Balance | Contract | Access key |
+|---|---|---|---|
+| `coldlemon3275.testnet` (yours, Meteor) | 2.00 NEAR | none | one `FullAccess` key, held by Meteor |
+| `proofarena-c23922.testnet` (generated here) | 9.99 NEAR | none | one `FullAccess` key, in `evidence/near-credentials/` |
+
+A browser wallet **cannot sign for scripts or deploy a contract**. Meteor signs only inside its
+own UI, so anything our tooling sends must come from a key file. Two clean ways to use your
+account:
+
+### Layout A (recommended) - your wallet owns the bounty, the throwaway hosts the contract
+
+Storage is paid by the hosting account, so your 2 NEAR is only needed for the reward:
+
+1. Meteor -> gear icon -> **Security and Recovery** -> **Export private key** for
+   `coldlemon3275.testnet`
+   ([Meteor docs](https://docs.meteorwallet.app/wallet-settings/how-to-have-complete-control-with-meteor-wallet.md)).
+2. Save it as `%USERPROFILE%\.near-credentials\testnet\coldlemon3275.testnet.json`:
+
+   ```json
+   {
+     "account_id": "coldlemon3275.testnet",
+     "public_key": "ed25519:<from Meteor>",
+     "private_key": "ed25519:<from Meteor>"
+   }
+   ```
+
+   Never paste that key into chat, a commit, or an issue.
+3. Deploy (signed by the throwaway key, owner set to your account):
+
+   ```powershell
+   $env:NEAR_CONTRACT_ID = "proofarena-c23922.testnet"   # host
+   $env:NEAR_OWNER       = "coldlemon3275.testnet"       # owner
+   python scripts/testnet/deploy.py --account proofarena-c23922.testnet `
+       --contract proofarena-c23922.testnet --owner coldlemon3275.testnet --yes
+   ```
+4. Run the signer as **your** account against that contract:
+
+   ```powershell
+   $env:NEAR_TESTNET_ACCOUNT = "coldlemon3275.testnet"
+   $env:NEAR_CONTRACT_ID     = "proofarena-c23922.testnet"
+   $env:NEAR_CREDENTIALS     = "$HOME\.near-credentials\testnet\coldlemon3275.testnet.json"
+   python wallet/near_signer.py
+   ```
+
+The explorer will show `coldlemon3275.testnet` funding the bounty and signing the approval - which
+is exactly what a demo should show - while the contract bytecode sits on the disposable account.
+
+### Layout B (no key export) - the throwaway owns and hosts everything
+
+Nothing of yours is touched; the account name in the demo is simply the generated one. Import that
+key into Meteor afterwards if you want to watch it in a wallet UI
+(Meteor -> Add Wallet -> paste private key).
+
+### Cost note
+
+Storage on NEAR testnet is `1e19 yocto/byte` ≈ **0.01 NEAR per KB**:
+
+| wasm size | locked as storage |
+|---|---|
+| 50 KB | 0.51 NEAR |
+| 80 KB | 0.82 NEAR |
+| 120 KB | 1.23 NEAR |
+
+That is why Layout A exists: deploying an ~80 KB contract on a 2 NEAR account would leave almost
+nothing for the reward. `cargo near build` (with `wasm-opt`) produces a smaller wasm than a plain
+`cargo build`, which lowers this.
+
+### One caveat about sharing a key
+
+If the signer and Meteor both hold the same key and you send a transaction from Meteor while the
+demo is running, the two clients can race on the access-key nonce. The signer retries on
+`InvalidNonce`, Meteor may not - so just avoid transacting from the wallet during the demo.
+
 ## 4. Build the contract (the only step that can surprise us)
 
 > **Prefer a guided build?** `cargo near build non-reproducible-wasm` (from
