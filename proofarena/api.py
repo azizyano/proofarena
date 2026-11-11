@@ -87,6 +87,10 @@ class AppContext:
         self.chain_mode = chain_mode
         self.rate_limiter = RateLimiter(limit=60, window_s=60)
         self._lock = threading.RLock()
+        # Chain reads are expensive on a slow link; the list view is served from
+        # the mirror, and detail reads are cached briefly.
+        self._bounty_cache: dict[int, tuple[float, Bounty | None]] = {}
+        self._bounty_cache_ttl_s = 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -172,18 +176,27 @@ def _agent(request: Request, *, challenge_id: str, role: str) -> dict[str, Any]:
     return {"account": row["agent_account"], "role": role, "challenge_id": challenge_id}
 
 
-def _chain_bounty(ctx: AppContext, challenge_row: Any) -> Bounty | None:
+def _chain_bounty(ctx: AppContext, challenge_row: Any, *, use_cache: bool = True) -> Bounty | None:
     bounty_id = challenge_row["onchain_bounty_id"]
     if bounty_id is None:
         return None
+    key = int(bounty_id)
+    now = time.monotonic()
+    if use_cache:
+        cached = ctx._bounty_cache.get(key)
+        if cached and now - cached[0] < ctx._bounty_cache_ttl_s:
+            return cached[1]
     try:
-        return ctx.ledger.get_bounty(int(bounty_id))
-    except NotFound:
-        return None
+        bounty = ctx.ledger.get_bounty(key)
+    except (NotFound, ProofArenaError):
+        bounty = None
+    ctx._bounty_cache[key] = (now, bounty)
+    return bounty
 
 
-def _challenge_view(ctx: AppContext, row: Any) -> dict[str, Any]:
-    bounty = _chain_bounty(ctx, row)
+def _challenge_view(ctx: AppContext, row: Any, *, light: bool = False) -> dict[str, Any]:
+    # `light` reads only the mirror: a list of N bounties must not cost N RPC calls.
+    bounty = None if light else _chain_bounty(ctx, row)
     claims = ctx.store.list_claims(row["id"])
     patches = ctx.store.list_patches(row["id"])
     jobs = ctx.store.list_jobs(row["id"])
@@ -263,6 +276,7 @@ def _sync_challenge(ctx: AppContext, challenge_id: str, bounty: Bounty | None) -
     if bounty is None:
         return
     ctx.store.update_challenge(challenge_id, state=bounty.effective_state.value)
+    ctx._bounty_cache[int(bounty.bounty_id)] = (time.monotonic(), bounty)
 
 
 def _index_receipts(ctx: AppContext, receipts: list[dict[str, Any]]) -> None:
@@ -607,7 +621,9 @@ async def fund_challenge(request: Request) -> Response:
 async def list_challenges(request: Request) -> Response:
     ctx = _ctx(request)
     rows = ctx.store.list_challenges()
-    return _json({"items": [_challenge_view(ctx, row) for row in rows], "count": len(rows)})
+    return _json(
+        {"items": [_challenge_view(ctx, row, light=True) for row in rows], "count": len(rows)}
+    )
 
 
 @api

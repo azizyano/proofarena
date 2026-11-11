@@ -69,7 +69,7 @@ def _common(request: Request) -> dict[str, Any]:
 async def index(request: Request) -> HTMLResponse:
     ctx = _ctx(request)
     rows = ctx.store.list_challenges(limit=6)
-    cards = [_challenge_view(ctx, row) for row in rows]
+    cards = [_challenge_view(ctx, row, light=True) for row in rows]
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -80,7 +80,7 @@ async def index(request: Request) -> HTMLResponse:
 async def bounty_list(request: Request) -> HTMLResponse:
     ctx = _ctx(request)
     rows = ctx.store.list_challenges(limit=100)
-    cards = [_challenge_view(ctx, row) for row in rows]
+    cards = [_challenge_view(ctx, row, light=True) for row in rows]
     return templates.TemplateResponse(
         request, "bounties.html", {**_common(request), "challenges": cards}
     )
