@@ -48,8 +48,12 @@ winget install --id Rustlang.Rustup -e
 rustup default stable
 rustup target add wasm32-unknown-unknown
 cargo --version                     # expect: cargo 1.8x
-rustup target list --installed      # expect: ... wasm32-unknown-unknown
+rustup target list --installed      # expect: wasm32-unknown-unknown in the list
 ```
+
+That last line is the one that matters: a wasm build without the `wasm32-unknown-unknown`
+target fails with `error[E0463]: can't find crate for 'core'`, which looks like a code error but
+is not. If you already installed Rust earlier, run just the last two commands.
 
 Expected time: 5–10 minutes. `wasm-opt` is **not** required.
 
@@ -421,6 +425,9 @@ A faucet account has more than enough. If you run low, top up at
 | Symptom | Meaning | Fix |
 |---|---|---|
 | `E_CHAIN_UNAVAILABLE` in the API | env not visible to that terminal | re-export `NEAR_CONTRACT_ID`, `NEAR_TESTNET_ACCOUNT`, `PROOFARENA_CHAIN_MODE` in the same terminal |
+| `error[E0463]: can't find crate for 'core'` | the wasm target is not installed | `rustup target add wasm32-unknown-unknown`, then `rustup target list --installed` |
+| `aws-lc-sys` / `cmake` / `nasm` errors during `cargo test` | the *test harness* (`near-sdk` unit-testing) needs a C toolchain; the contract itself is fine | skip `cargo test`: run `cargo build --release --target wasm32-unknown-unknown --manifest-path contracts/escrow/Cargo.toml`. The contract rules already have 41 Python tests |
+| `cargo near: command not found` | cargo-near not installed | `irm https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.ps1 \| iex` |
 | `no NEAR credentials found` | key file not where expected | step 2; or set `$env:NEAR_CREDENTIALS` to the file path |
 | `key is not an access key on …` | credentials don't match the account | re-download the key from the faucet page |
 | `signer service … unreachable` | signer not running | `python wallet/near_signer.py` |

@@ -51,14 +51,51 @@ def banner(text: str) -> None:
     print(f"\n{text}\n" + "-" * len(text))
 
 
-def build_wasm(wasm: Path) -> None:
+def installed_targets() -> list[str]:
+    """Return the rustup targets installed for the active toolchain."""
+    if shutil.which("rustup") is None:
+        return []
+    try:
+        proc = subprocess.run(
+            ["rustup", "target", "list", "--installed"], capture_output=True, text=True, timeout=60
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if proc.returncode != 0:
+        return []
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def wasm_target_installed(targets: list[str]) -> bool:
+    return "wasm32-unknown-unknown" in targets
+
+
+TARGET_HINT = (
+    "The wasm32 target is missing. Install it once, then re-run:\n"
+    "  rustup target add wasm32-unknown-unknown\n"
+    "  rustup target list --installed      # should list wasm32-unknown-unknown"
+)
+
+
+def build_wasm(wasm: Path, *, rebuild: bool = False) -> None:
     banner("Building contract")
     if shutil.which("cargo") is None:
         raise SystemExit(
-            "cargo not found. Install Rust, then:\n"
+            "cargo not found. Install Rust first (https://rustup.rs), then:\n"
             "  rustup target add wasm32-unknown-unknown\n"
             "  python scripts/testnet/deploy.py"
         )
+
+    targets = installed_targets()
+    if targets and not wasm_target_installed(targets):
+        raise SystemExit(f"cargo is installed but the contract target is not.\n{TARGET_HINT}")
+    if not targets:
+        print("(could not query rustup targets; trying the build anyway)")
+
+    if wasm.exists() and not rebuild:
+        print(f"using existing {wasm} ({wasm.stat().st_size / 1024:.0f} KB) — pass --rebuild to force")
+        return
+
     env = dict(os.environ)
     env.setdefault("RUSTFLAGS", "-C link-arg=-s")
     command = [
@@ -74,8 +111,10 @@ def build_wasm(wasm: Path) -> None:
     proc = subprocess.run(command, env=env, cwd=str(ROOT / "contracts" / "escrow"))
     if proc.returncode != 0:
         raise SystemExit(
-            "cargo build failed. This is expected the first time on a new toolchain — "
-            "send the compiler output to the maintainer; the contract has never been compiled here."
+            "cargo build failed.\n"
+            "If the error mentions `can't find crate for core` (E0463):\n"
+            f"{TARGET_HINT}\n"
+            "Otherwise this is a source/toolchain error — send the whole compiler block to the maintainer."
         )
     if not wasm.exists():
         raise SystemExit(f"build reported success but {wasm} is missing")
@@ -93,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contract", default=os.environ.get("NEAR_CONTRACT_ID") or os.environ.get("NEAR_TESTNET_ACCOUNT"))
     parser.add_argument("--owner", default=None, help="contract owner account (defaults to --account)")
     parser.add_argument("--check", action="store_true", help="build only")
+    parser.add_argument("--rebuild", action="store_true", help="force a rebuild even if the wasm exists")
     parser.add_argument("--dry-run", action="store_true", help="build and print the signed transaction")
     parser.add_argument("--yes", action="store_true", help="do not ask for confirmation")
     parser.add_argument("--rpc", default=os.environ.get("NEAR_RPC_URL", "https://rpc.testnet.near.org"))
@@ -113,8 +153,8 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     wasm = Path(args.wasm)
-    if not wasm.exists():
-        build_wasm(wasm)
+    if not wasm.exists() or args.rebuild:
+        build_wasm(wasm, rebuild=args.rebuild)
     if wasm.read_bytes()[:4] != b"\x00asm":
         raise SystemExit(f"{wasm} is not a WebAssembly module")
     print(f"wasm: {wasm} ({wasm.stat().st_size / 1024:.0f} KB)")
