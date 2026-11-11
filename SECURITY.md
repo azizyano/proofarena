@@ -27,6 +27,11 @@ If you think you have found a secret in the history, treat it as compromised: re
 | Owner (`coldlemon3275.testnet`) | `%USERPROFILE%\.near-credentials\testnet\` — **outside** this repo | signs owner actions in the demo |
 | Contract host (`proofarena-c23922.testnet`) | `evidence/near-credentials/` inside the workspace, git-ignored | can upgrade or delete the deployed contract account |
 | Auditor (`proofarena-auditor-0fbc4e.testnet`) | `evidence/near-credentials/`, git-ignored | signs `commit_claim` in the demo |
+| Local demo signer | `wallet/owner.key.json`, git-ignored, regenerated on demand | local-mode login only; deleted from this checkout |
+
+**Recommendation:** move every `*.json` credential out of the repository into
+`%USERPROFILE%\.near-credentials\testnet\`. Ignored is not the same as safe when the repository is
+public and the folder syncs to cloud storage.
 
 All three are **testnet-only** accounts funded by the faucet. If you fork this repository to run the
 demo, generate your own accounts (`python scripts/testnet/create_account.py`) — do not reuse keys

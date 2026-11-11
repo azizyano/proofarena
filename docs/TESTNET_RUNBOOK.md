@@ -62,7 +62,7 @@ Expected time: 5–10 minutes. `wasm-opt` is **not** required.
 ## 2. Testnet account — already created for you
 
 An account already exists and is funded: **`proofarena-c23922.testnet`** (10 NEAR).
-The key is at `evidence/near-credentials/proofarena-c23922.testnet.json` and was never printed
+The key is at `%USERPROFILE%\.near-credentials\testnet\proofarena-c23922.testnet.json` and was never printed
 or committed. Details and the on-chain evidence: `docs/TESTNET_EVIDENCE.md`.
 
 Use it as-is:
@@ -70,7 +70,7 @@ Use it as-is:
 ```powershell
 $env:NEAR_TESTNET_ACCOUNT = "proofarena-c23922.testnet"
 $env:NEAR_CONTRACT_ID     = "proofarena-c23922.testnet"
-$env:NEAR_CREDENTIALS     = "evidence\near-credentials\proofarena-c23922.testnet.json"
+# no NEAR_CREDENTIALS needed when the key is in the standard location
 ```
 
 Prefer your own account? Create one (the script saves the key, never prints it):
@@ -80,7 +80,7 @@ python scripts/testnet/create_account.py --name proofarena-demo-yourname
 ```
 
 `%USERPROFILE%\.near-credentials` may be unwritable in some sandboxes; the script falls back to
-`evidence/near-credentials/` and tells you to export `NEAR_CREDENTIALS`.
+the standard location and tells you to export `NEAR_CREDENTIALS`.
 
 <details>
 <summary>Manual faucet route (what the script automates)</summary>
@@ -142,7 +142,7 @@ $env:NEAR_TESTNET_ACCOUNT = "proofarena-c23922.testnet"
 $env:NEAR_CONTRACT_ID     = $env:NEAR_TESTNET_ACCOUNT
 $env:NEAR_RPC_URL         = "https://rpc.testnet.near.org"
 $env:PROOFARENA_SIGNER_URL = "http://127.0.0.1:8788"
-$env:NEAR_CREDENTIALS     = "evidence\near-credentials\proofarena-c23922.testnet.json"
+# no NEAR_CREDENTIALS needed when the key is in the standard location
 ```
 
 Both account values must end in `.testnet`. Every script refuses anything else.
@@ -178,6 +178,21 @@ parsing) should be `PASS`. Send me this output if anything unexpected is `FAIL`.
 
 ---
 
+### Keep keys out of the repository
+
+The repository is public. Credentials belong in `%USERPROFILE%\.near-credentials\testnet\`, never
+inside the project folder — even though `evidence/` is git-ignored, one `git add -f` would leak them.
+If a key still lives under `evidence/near-credentials/`, move it:
+
+```powershell
+$dest = "$HOME\.near-credentials\testnet"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Move-Item "evidence\near-credentials\*.json" $dest -Force
+Remove-Item "evidence\near-credentials" -Force -ErrorAction SilentlyContinue
+```
+
+The code checks the standard location automatically once the files are there.
+
 ## 3b. Using your own Meteor account as the owner
 
 Checked on-chain (2026-11-11):
@@ -185,7 +200,7 @@ Checked on-chain (2026-11-11):
 | Account | Balance | Contract | Access key |
 |---|---|---|---|
 | `coldlemon3275.testnet` (yours, Meteor) | 2.00 NEAR | none | one `FullAccess` key, held by Meteor |
-| `proofarena-c23922.testnet` (generated here) | 9.99 NEAR | none | one `FullAccess` key, in `evidence/near-credentials/` |
+| `proofarena-c23922.testnet` (generated here) | 9.99 NEAR | none | one `FullAccess` key, standard credentials location |
 
 A browser wallet **cannot sign for scripts or deploy a contract**. Meteor signs only inside its
 own UI, so anything our tooling sends must come from a key file. Two clean ways to use your

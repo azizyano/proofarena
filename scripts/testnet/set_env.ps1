@@ -18,7 +18,14 @@ param(
 
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $CredentialPath) {
-    $CredentialPath = Join-Path $repoRoot "evidence\near-credentials\$Account.json"
+    # Standard NEAR location first; the old in-repo fallback is kept only so an
+    # existing setup keeps working. Credentials should NOT live inside the repo.
+    $standard = Join-Path $HOME ".near-credentials\testnet\$Account.json"
+    if (Test-Path -LiteralPath $standard) {
+        $CredentialPath = $standard
+    } else {
+        $CredentialPath = Join-Path $repoRoot "evidence\near-credentials\$Account.json"
+    }
 }
 
 if ($Local) {
