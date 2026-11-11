@@ -22,39 +22,39 @@ form.** Everything else is prepared.
 
 ## 1. Description for the form
 
-Pick one, paste as-is.
+Two finished versions, both inside the 20-2,000 character limit. Paste one; nothing else needed.
 
-### Short (≈430 characters)
+| Version | Characters | Use when |
+|---|---|---|
+| A - full | 1620 | recommended (default choice) |
+| B - short | 884 | if you want it terser |
 
-> ProofArena is a security-bounty market where AI agents do the work but a human wallet decides the
-> money. An owner funds a bounty for an authorized fixture; an auditor agent submits a failing test;
-> an independent verifier re-runs it in a sandbox; a defender patches; the verifier re-runs
-> before/after; the owner signs approval from their wallet; a NEAR escrow pays exactly once.
-> Reproduced on testnet with real transaction receipts.
+### Version A - full (1620 characters)
 
-### Long (≈1,500 characters, under the 2,000 limit)
+```text
+AI can now propose a vulnerability and a patch in seconds. But a proposal is not evidence, and a convincing patch is not proof the exploit is gone. Security bounties still pay for plausible prose.
 
-> AI can propose a vulnerability and a patch in seconds — neither is evidence. ProofArena makes
-> verification the economic boundary.
->
-> An owner funds a bounty on NEAR testnet for an explicitly authorized fixture. An auditor agent
-> submits a claim with a reproducible failing test (commitment on chain, exploit details private). A
-> defender submits a patch that touches only the authorized file. An independent verifier re-runs the
-> baseline twice, applies the patch, re-runs the test plus a regression suite, and records hashed
-> artifacts. The owner then signs approval from their own wallet. A near-sdk escrow contract pays
-> exactly once, with PayoutPending, a private callback, and NeedsReconciliation for ambiguous
-> transfers — no automatic retries.
->
-> What makes it different: the payment decision is never an agent's. Agents hold no keys. The
-> contract enforces one winner, owner-only approvals, exclusive payout/refund, and terminal states.
->
-> Verified on NEAR testnet: fund → claim → verify → approve → payout (bounty #3), a refused second
-> payout, and the refund path (bounties #2 and #4). Escrow liability returned to zero. 176 automated
-> tests; the browser wallet flow uses NEP-413 sign-in and wallet-sent transactions, so the server
-> stores no key.
->
-> Honest limits: testnet only, not audited, and the verifier is a single operator (independent
-> re-execution, not a trustless quorum).
+ProofArena makes verification the thing that unlocks the money. An owner funds a bounty on NEAR for an explicitly authorized fixture. An auditor agent submits a claim: a reproducible failing test, with only a salted commitment going on-chain and the exploit detail kept private. A defender submits a patch that may touch nothing outside the authorized file. An independent verifier re-executes the baseline twice, applies the patch, re-runs the failing test plus a regression suite, and hashes every artifact. Then, and only then, the owner signs approval from their own wallet.
+
+A near-sdk escrow contract pays exactly once. State moves through PayoutPending, a private callback, and NeedsReconciliation when a transfer is ambiguous - no automatic retries. Paid and Refunded are terminal, and the contract refuses a second payout or a refund after approval.
+
+NEAR is the settlement layer and the trust boundary, not decoration. The escrow holds native NEAR, checks predecessor identity for owner-only approvals, and pushes funds with promise callbacks. Agents hold no keys: browser wallets sign every transaction through NEP-413 sign-in, and the server verifies what actually landed on chain instead of trusting the client.
+
+It runs: deployed at proofarena-c23922.testnet, one bounty verified and paid exactly once, expired bounties refunded, escrow liability back to zero, 176 automated tests. Testnet only, not audited.
+```
+
+### Version B - short (884 characters)
+
+```text
+AI agents can now propose vulnerabilities and patches in seconds, but neither is evidence. ProofArena makes verified evidence the thing that unlocks payment: an owner funds a bounty for an authorized fixture, an auditor agent submits a reproducible failing test, a defender patches, an independent verifier re-runs baseline and patch in a sandbox, and only then does the owner's wallet approve.
+
+NEAR is the settlement layer: a near-sdk escrow holds native NEAR, enforces one winner and owner-only approval, and pays exactly once with pending, callback and reconciliation states that forbid a second payout or a refund after approval. Agents never hold keys; wallets sign with NEP-413 and the server verifies the transaction on chain.
+
+Deployed on testnet at proofarena-c23922.testnet: verified, paid once, refunds settled, escrow liability zero, 176 tests. Testnet only, not audited.
+```
+
+Both state the problem, what was built, how NEAR is used, the real testnet evidence, and the limits
+(testnet only, not audited). Do not add "audited", "trustless" or mainnet claims.
 
 ## 2. Track
 
