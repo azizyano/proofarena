@@ -32,7 +32,7 @@ an external dependency is missing.
 | PA-010 | P0 | Security/DevOps | TESTED_LOCAL (process-level) | `proofarena/runner.py` | RUN-001/002/003/007 tests | kernel isolation needs B5 |
 | PA-011 | P0 | Backend | TESTED_LOCAL | `proofarena/api.py`, `store.py`, `auth/` | 20 API tests + live uvicorn smoke | — |
 | PA-012 | P0 | Backend | TESTED_LOCAL | idempotent jobs, private evidence, audit log | idempotency replay test, RUN-006 403 test | — |
-| PA-013 | P0 | Frontend | TESTED_LOCAL | `web.py`, `templates/`, `static/`, `wallet/signer.py` | page render tests, signer integration tests, live HTTP flow | screenshots need a browser |
+| PA-013 | P0 | Frontend | TESTED_LOCAL (+ browser wallet) | `web.py`, `templates/`, `static/`, `wallet/signer.py` | page render tests, signer integration tests, live HTTP flow; `web-vercel/` wallet app served at `/wallet/`; NEP-413 auth + wallet-tx verification tested and replayed against real testnet txs | browser interaction needs a real wallet extension |
 | PA-014 | P0 | Security | IN_REVIEW | `docs/THREAT_MODEL.md`, ADR-0005 limitations | P0 findings: none open; declared residual risks | — |
 | PA-015 | P0 | QA | TESTED_LOCAL | `docs/QA_MATRIX.md` | 82 passed, two consecutive runs | — |
 | PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid; committed tree exported with `git archive HEAD` (75 files) → 82 passed + demo complete | — |
@@ -46,7 +46,7 @@ an external dependency is missing.
 ## Test totals
 
 ```
-python -m pytest tests/ -q   →   156 passed  (escrow, runner, API, web, signer, NEAR plumbing, account, build config)
+python -m pytest tests/ -q   →   176 passed  (escrow, runner, API, web, signer, wallet auth, NEAR plumbing, account, build config)
 scripts/e2e_demo.py          →   PATCH_VERIFIED → Paid once, 6 receipts, chain valid
 
 # fresh-tree check for the local MVP (earlier commit):

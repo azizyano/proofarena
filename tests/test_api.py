@@ -704,3 +704,28 @@ def _bounty_stub():
         state=BountyState.REFUND_PENDING,
         escrow_balance_yocto=10**23,
     )
+
+
+def test_wallet_demo_page_is_served(app, client):
+    """The static wallet demo is served by the API too (same files Vercel hosts)."""
+    page = client.get("/wallet/")
+    assert page.status_code == 200
+    assert "wallet.js" in page.text
+    assert "Connect Meteor" in page.text
+    for asset in ("/wallet/wallet.js", "/wallet/config.js"):
+        response = client.get(asset)
+        assert response.status_code == 200, asset
+        assert "text" in response.headers.get("content-type", "")
+
+
+def test_wallet_flow_rejects_local_chain(app, client, wallet):
+    """Wallet signing is refused when the app is not on a real chain."""
+    headers = login(app, client, wallet)
+    challenge_id, funded = create_and_fund(app, client, wallet, headers)
+    response = client.post(
+        f"/v1/challenges/{challenge_id}/wallet-intent",
+        headers=headers,
+        json={"action": "request_payout"},
+    )
+    assert response.status_code == 409
+    assert "near testnet mode" in response.json()["message"].lower()

@@ -118,28 +118,35 @@ class NearTestnetAdapter:
             raise _translate_contract_error(method, str(exc)) from exc
         if not outcome.success:
             raise _translate_contract_error(method, outcome.error or "")
-        receipt = self._record(kind, outcome, bounty_id=bounty_id, attempt_id=attempt_id)
+        receipt = self._record(
+            kind,
+            tx_hash=outcome.tx_hash,
+            logs=outcome.logs,
+            bounty_id=bounty_id,
+            attempt_id=attempt_id,
+        )
         return success_value(outcome), receipt
 
     def _record(
         self,
         kind: str,
-        outcome: Any,
         *,
+        tx_hash: str,
+        logs: list[str] | None,
         bounty_id: int | None,
         attempt_id: int | None,
     ) -> dict[str, Any]:
         ts_ns = time.time_ns()
         payload = {
-            "receipt_id": outcome.tx_hash,
+            "receipt_id": tx_hash,
             "network": self.network,
             "contract_id": self.contract_id,
             "kind": kind,
             "bounty_id": bounty_id,
             "attempt_id": attempt_id,
             "ts_ns": ts_ns,
-            "data": {"logs": outcome.logs[-5:]},
-            "explorer_url": f"{self.explorer_base}/{outcome.tx_hash}",
+            "data": {"logs": (logs or [])[-5:]},
+            "explorer_url": f"{self.explorer_base}/{tx_hash}",
             "simulated": False,
         }
         with self._lock:
@@ -148,7 +155,7 @@ class NearTestnetAdapter:
                 " attempt_id, ts_ns, payload_json) VALUES (?,?,?,?,?,?,?)",
                 (
                     self.network,
-                    outcome.tx_hash,
+                    tx_hash,
                     kind,
                     bounty_id,
                     attempt_id,
@@ -394,6 +401,27 @@ class NearTestnetAdapter:
             return None
         bounty = self.get_bounty(bounty_id)
         return bounty.attempt(int(attempt_id))
+
+    def record_wallet_tx(
+        self,
+        *,
+        kind: str,
+        tx_hash: str,
+        bounty_id: int | None,
+        attempt_id: int | None = None,
+        logs: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Record a transaction the *browser wallet* sent (no server key involved)."""
+        receipt = self._record(
+            kind,
+            tx_hash=tx_hash,
+            logs=logs,
+            bounty_id=bounty_id,
+            attempt_id=attempt_id,
+        )
+        if bounty_id is not None:
+            self._set_receipt_bounty(tx_hash, bounty_id)
+        return receipt
 
     # ------------------------------------------------------------------
     # receipts

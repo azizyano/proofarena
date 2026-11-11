@@ -49,10 +49,12 @@ from .errors import (
     Unauthorized,
 )
 from .patching import PatchError, apply_unified_diff, diff_touches_only
+from .near.base58 import b58decode, b58encode
 from .runner import SandboxSpec
 from .schemas import validate_claim_manifest, validate_verification_result
 from .store import Store
 from .verify import run_verification
+from .walletflow import GAS_100_TGAS, TxPlan, verify_nep413_signature, verify_wallet_tx
 
 MAX_BODY_BYTES = 2 * 1024 * 1024
 TERMINAL_STATE_LABELS = {"Paid", "Refunded"}
@@ -1350,6 +1352,286 @@ async def chain_receipts(request: Request) -> Response:
     return _json({"receipts": ctx.ledger.receipts(limit=limit), "network": ctx.ledger.network})
 
 
+
+# ---------------------------------------------------------------------------
+# browser-wallet flow: no key on the server
+# ---------------------------------------------------------------------------
+WALLET_ACTION_METHODS = {
+    "fund_bounty": "create_bounty",
+    "review": "mark_review",
+    "approve_claim": "approve_claim",
+    "request_payout": "request_payout",
+    "refund_expired": "refund_expired",
+    "set_dispute": "set_dispute",
+    "reconcile": "reconcile",
+}
+
+
+def _require_wallet_chain(ctx: AppContext) -> Any:
+    """Wallet signing only makes sense on a real chain."""
+    if not hasattr(ctx.ledger, "record_wallet_tx"):
+        raise StateError(
+            "wallet signing requires NEAR testnet mode (PROOFARENA_CHAIN_MODE=near-testnet)"
+        )
+    return ctx.ledger
+
+
+def _tx_plan(ctx: AppContext, row: Any, action: str, extras: dict[str, Any]) -> TxPlan:
+    ledger = _require_wallet_chain(ctx)
+    contract = ledger.contract_id
+    bounty_id = row["onchain_bounty_id"]
+
+    if action == "fund_bounty":
+        if bounty_id is not None:
+            raise StateError("challenge is already funded")
+        reward = int(row["reward_yocto"])
+        args = {
+            "title": row["title"],
+            "metadata_hash_hex": row["metadata_hash_hex"],
+            "reward_yocto": str(reward),
+            "deadline_ns": int(row["deadline_ns"]),
+            "review_deadline_ns": int(row["review_deadline_ns"]),
+        }
+        return TxPlan(action, contract, "create_bounty", args, reward + cfg.STORAGE_FEE_YOCTO, GAS_100_TGAS)
+
+    if bounty_id is None:
+        raise StateError("fund the challenge before this action")
+
+    if action == "review":
+        return TxPlan(action, contract, "mark_review", {"bounty_id": int(bounty_id)}, 0, GAS_100_TGAS)
+
+    if action == "approve_claim":
+        claim = _require_claim_for_bounty(ctx, row, str(extras.get("claim_id") or ""))
+        return TxPlan(
+            action,
+            contract,
+            "approve_claim",
+            {"bounty_id": int(bounty_id), "claim_id": int(claim["onchain_claim_id"])},
+            0,
+            GAS_100_TGAS,
+        )
+
+    if action == "request_payout":
+        return TxPlan(action, contract, "request_payout", {"bounty_id": int(bounty_id)}, 0, GAS_100_TGAS)
+
+    if action == "refund_expired":
+        return TxPlan(action, contract, "refund_expired", {"bounty_id": int(bounty_id)}, 0, GAS_100_TGAS)
+
+    if action == "set_dispute":
+        disputed = extras.get("disputed")
+        if not isinstance(disputed, bool):
+            raise ParamError("disputed must be a boolean")
+        return TxPlan(
+            action,
+            contract,
+            "set_dispute",
+            {"bounty_id": int(bounty_id), "disputed": disputed},
+            0,
+            GAS_100_TGAS,
+        )
+
+    if action == "reconcile":
+        resolution = str(extras.get("resolution") or "")
+        evidence = str(extras.get("evidence_sha256") or "")
+        note = str(extras.get("note") or "")
+        if resolution not in {"paid", "refunded"}:
+            raise ParamError("resolution must be 'paid' or 'refunded'")
+        if not evidence or not note:
+            raise ParamError("evidence_sha256 and note are required")
+        return TxPlan(
+            action,
+            contract,
+            "reconcile",
+            {
+                "bounty_id": int(bounty_id),
+                "resolution": resolution,
+                "evidence_sha256": evidence,
+                "note": note,
+            },
+            0,
+            GAS_100_TGAS,
+        )
+
+    raise ParamError(f"unknown wallet action {action!r}")
+
+
+@api
+async def wallet_nonce(request: Request) -> Response:
+    """Step 1 of wallet login: hand the browser a nonce to sign (NEP-413)."""
+    ctx = _ctx(request)
+    body = await _body(request)
+    account = body.get("account_id")
+    if not isinstance(account, str) or not account:
+        raise ParamError("account_id is required")
+    nonce = secrets.token_bytes(32)
+    nonce_b58 = b58encode(nonce)
+    message = f"Sign in to ProofArena as {account}"
+    recipient = ctx.auth.domain
+    issued = _now_ns()
+    expires = issued + 5 * 60 * 10**9
+    ctx.store.put_nonce(
+        nonce=nonce_b58,
+        account=account,
+        domain=recipient,
+        purpose="wallet_login",
+        message=message,
+        expires_ns=expires,
+    )
+    return _json(
+        {
+            "account_id": account,
+            "nonce": nonce_b58,
+            "message": message,
+            "recipient": recipient,
+            "expires_ns": expires,
+            "sign_as": "NEP-413",
+        }
+    )
+
+
+@api
+async def wallet_verify(request: Request) -> Response:
+    """Step 2: verify the wallet's signMessage result against its on-chain keys."""
+    ctx = _ctx(request)
+    body = await _body(request)
+    account = str(body.get("account_id") or "")
+    public_key = str(body.get("public_key") or "")
+    signature = str(body.get("signature") or "")
+    nonce_b58 = str(body.get("nonce") or "")
+    message = str(body.get("message") or "")
+    recipient = str(body.get("recipient") or ctx.auth.domain)
+    if not all([account, public_key, signature, nonce_b58, message]):
+        raise ParamError("account_id, public_key, signature, nonce and message are required")
+
+    ledger = _require_wallet_chain(ctx)
+    try:
+        nonce = b58decode(nonce_b58)
+    except Exception as exc:
+        raise ParamError("nonce is not valid base58") from exc
+
+    verify_nep413_signature(
+        public_key_ed25519=public_key,
+        signature_b64=signature,
+        message=message,
+        nonce=nonce,
+        recipient=recipient,
+    )
+
+    # The key must actually belong to the account right now.
+    try:
+        keys = ledger.rpc.view_access_key_list(account)
+    except Exception as exc:
+        raise AuthError(f"cannot read access keys for {account!r}: {str(exc)[:160]}") from exc
+    if public_key not in {item.get("public_key") for item in keys}:
+        raise AuthError(f"{public_key} is not an access key on {account!r}")
+
+    consumed = ctx.store.consume_nonce(
+        nonce_b58, purpose="wallet_login", domain=recipient, now=_now_ns()
+    )
+    if consumed is None:
+        raise AuthError("nonce is expired, unknown or already used")
+
+    token = issue_session(account=account, secret=ctx.session_secret)
+    ctx.store.audit(
+        actor=account,
+        action="wallet_login_nep413",
+        entity="user",
+        entity_id=account,
+        payload={"public_key": public_key},
+    )
+    return _json({"token": token, "account": account, "token_type": "bearer"})
+
+
+@api
+async def wallet_intent(request: Request) -> Response:
+    """Return the exact transaction the browser wallet should sign and send."""
+    ctx = _ctx(request)
+    challenge_id = request.path_params["challenge_id"]
+    account, row = _require_owner(request, challenge_id)
+    body = await _body(request)
+    action = str(body.get("action") or "")
+    plan = _tx_plan(ctx, row, action, body)
+    return _json(
+        {
+            "plan": plan.to_public(),
+            "signer": account,
+            "note": "sign and send this with your wallet, then POST the tx hash to /wallet-confirm",
+        }
+    )
+
+
+@api
+async def wallet_confirm(request: Request) -> Response:
+    """Verify the wallet's transaction on chain, then update the mirror."""
+    ctx = _ctx(request)
+    challenge_id = request.path_params["challenge_id"]
+    account, row = _require_owner(request, challenge_id)
+    body = await _body(request)
+    action = str(body.get("action") or "")
+    tx_hash = str(body.get("tx_hash") or "")
+    plan = _tx_plan(ctx, row, action, body)
+    ledger = _require_wallet_chain(ctx)
+
+    result = verify_wallet_tx(
+        ledger.rpc,
+        tx_hash=tx_hash,
+        contract_id=ledger.contract_id,
+        signer_account=account,
+        plan=plan,
+    )
+    logs: list[str] = []
+    for item in result.get("receipts_outcome", []) or []:
+        logs.extend(item.get("outcome", {}).get("logs", []) or [])
+
+    bounty = None
+    bounty_id = row["onchain_bounty_id"]
+    if action == "fund_bounty":
+        # create_bounty allocates the id on chain; read it back rather than guessing.
+        ids = ledger.rpc.call_view_optional(ledger.contract_id, "list_bounty_ids", {}) or []
+        bounty_id = max((int(i) for i in ids), default=None)
+        if bounty_id is not None:
+            ctx.store.update_challenge(challenge_id, onchain_bounty_id=bounty_id)
+            row = ctx.store.get_challenge(challenge_id)
+    if bounty_id is not None:
+        try:
+            bounty = ledger.get_bounty(int(bounty_id))
+        except ProofArenaError:
+            bounty = None
+    if bounty is not None:
+        _sync_challenge(ctx, challenge_id, bounty)
+
+    receipt = ledger.record_wallet_tx(
+        kind={
+            "fund_bounty": "bounty_created",
+            "review": "review_started",
+            "approve_claim": "claim_approved",
+            "request_payout": "payout_requested",
+            "refund_expired": "refund_requested",
+            "set_dispute": "dispute_changed",
+            "reconcile": "reconciled",
+        }.get(action, "wallet_tx"),
+        tx_hash=tx_hash,
+        bounty_id=int(bounty_id) if bounty_id is not None else None,
+        logs=logs,
+    )
+    ctx.store.audit(
+        actor=account,
+        action=f"wallet_tx_{action}",
+        entity="challenge",
+        entity_id=challenge_id,
+        payload={"tx_hash": tx_hash, "method": plan.method},
+    )
+    return _json(
+        {
+            "tx_hash": tx_hash,
+            "receipt": receipt,
+            "challenge": _challenge_view(ctx, ctx.store.get_challenge(challenge_id)),
+            "bounty": bounty.to_dict() if bounty else None,
+            "verified": True,
+        }
+    )
+
+
 def routes() -> list[Route]:
     return [
         Route("/health", health, methods=["GET"]),
@@ -1358,6 +1640,14 @@ def routes() -> list[Route]:
         Route("/auth/challenge", auth_challenge, methods=["POST"]),
         Route("/auth/verify", auth_verify, methods=["POST"]),
         Route("/auth/me", auth_me, methods=["GET"]),
+        Route("/auth/wallet/nonce", wallet_nonce, methods=["POST"]),
+        Route("/auth/wallet/verify", wallet_verify, methods=["POST"]),
+        Route(
+            "/v1/challenges/{challenge_id}/wallet-intent", wallet_intent, methods=["POST"]
+        ),
+        Route(
+            "/v1/challenges/{challenge_id}/wallet-confirm", wallet_confirm, methods=["POST"]
+        ),
         Route("/v1/intents", create_intent, methods=["POST"]),
         Route("/v1/challenges", create_challenge, methods=["POST"]),
         Route("/v1/challenges", list_challenges, methods=["GET"]),

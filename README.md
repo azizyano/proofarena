@@ -16,7 +16,8 @@ one bounty, one winner, native token, testnet-only.
 
 | Verdict | Status |
 |---|---|
-| Local end-to-end workflow | **TESTED_LOCAL** — 156 automated tests + `scripts/e2e_demo.py` |
+| Local end-to-end workflow | **TESTED_LOCAL** — 176 automated tests + `scripts/e2e_demo.py` |
+| Browser-wallet flow (no server key) | **VERIFIED ON CHAIN** — real testnet txs replayed through the verifier; browser step needs a wallet to exercise |
 | Escrow rules (payout/refund/approval) | **TESTED_LOCAL** via the executable reference engine |
 | NEAR testnet adapter + native signer | **OFFLINE-TESTED** — 42 tests; no live transaction sent from this build machine |
 | Rust NEAR contract | **IMPLEMENTED_UNTESTED** — `cargo test` is step 4 of the runbook |
@@ -61,7 +62,7 @@ receipts, and the HTTP surface.
 # Python 3.11+ with the pinned dependencies
 pip install -r requirements.txt
 
-# 1. Verify everything (156 tests: escrow invariants, runner isolation, API, web, NEAR plumbing)
+# 1. Verify everything (176 tests: escrow, runner, API, web, wallet auth, NEAR plumbing)
 python -m pytest tests/ -q
 
 # 2. Drive the entire lifecycle and print real receipts
@@ -122,7 +123,7 @@ proofarena/
   wallet/near_signer.py    NEAR testnet signer service: owns the key, enforces an allowlist
   scripts/                 versions, dev server, patch builder, end-to-end demo
   scripts/testnet/         preflight, deploy (build+sign+broadcast), live smoke test
-  tests/                   156 tests
+  tests/                   176 tests
   docs/                    ADRs, QA matrix, threat model
   communications/          status board, decision log, handoffs
 ```

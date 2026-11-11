@@ -114,6 +114,14 @@ class NearRpc:
             )
         return result
 
+    def view_access_key_list(self, account_id: str) -> list[dict[str, Any]]:
+        result = self._post(
+            "query",
+            {"request_type": "view_access_key_list", "finality": "final", "account_id": account_id},
+            retries=2,
+        )
+        return list(result.get("keys", []))
+
     def account(self, account_id: str) -> dict[str, Any]:
         result = self._post(
             "query",

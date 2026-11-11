@@ -34,3 +34,6 @@ pytest-cache-files-*/
 
 .toolchain/
 
+.npm-cache/
+.npm-probe/
+

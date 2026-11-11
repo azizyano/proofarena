@@ -1,5 +1,11 @@
 # Hosting the demo
 
+> **The recommended deployment is now Vercel (UI) + your VPS (API + verifier), with the visitor's
+> own wallet signing every transaction. Step-by-step: `docs/DEPLOY_VERCEL_VPS.md`.**
+>
+> The options below remain valid but are secondary: the wallet path removes the server key entirely,
+> so the "no key on the server" warning applies to the legacy signer flow only.
+
 The contract is live on testnet. The question is how to let other people see it. There are three
 honest options; pick by how much you want visitors to *do* versus *see*.
 

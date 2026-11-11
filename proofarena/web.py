@@ -27,6 +27,8 @@ from . import __version__, config as cfg
 from .api import AppContext, _challenge_view, _claim_view, _ctx, _iso, _job_status
 
 PACKAGE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = PACKAGE_DIR.parent
+WALLET_SITE_DIR = REPO_ROOT / "web-vercel"
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 
 
@@ -61,6 +63,7 @@ def _common(request: Request) -> dict[str, Any]:
             ("/", "Overview"),
             ("/bounties", "Bounties"),
             ("/bounties/new", "Create"),
+            ("/wallet/", "Try with wallet"),
             ("/status", "Status"),
         ],
     }
@@ -261,5 +264,7 @@ def add_web_routes(app: Any) -> None:
             Route("/transactions/{receipt_id}", transaction, methods=["GET"]),
             Route("/status", status_page, methods=["GET"]),
             Mount("/static", StaticFiles(directory=str(PACKAGE_DIR / "static")), name="static"),
+            # The same static wallet demo that can be deployed to Vercel.
+            Mount("/wallet", StaticFiles(directory=str(WALLET_SITE_DIR), html=True), name="wallet"),
         ]
     )

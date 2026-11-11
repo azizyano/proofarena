@@ -7,7 +7,7 @@ Command for the whole suite:
 
 ```
 python -m pytest tests/ -q
-→ 156 passed       (escrow, runner, API, web, signer, NEAR plumbing, account, build config)
+→ 176 passed       (escrow, runner, API, web, signer, wallet auth, NEAR plumbing, account, build config)
 ```
 
 Fresh-tree check: the committed tree was exported with `git archive HEAD` (75 files, no caches, no
@@ -125,6 +125,23 @@ execution (no funds move); `--dry-run` prints the round-trip decode first.
 | Abandoned bounty refunded after grace; escrow liability reaches 0 | **PASS** | bounty #2 → `EYyzkpCu…`; `total_escrow_yocto() → 0` |
 
 Details: `docs/TESTNET_EVIDENCE.md`.
+
+## Browser-wallet flow (no server key)
+
+`python -m pytest tests/test_walletflow.py -q` → **18 passed**.
+
+| Area | Assertion |
+|---|---|
+| NEP-413 payload | exact Borsh layout (message, 32-byte nonce, recipient, Optional callback URL) |
+| NEP-413 signature | accepts a valid signature; rejects tampered message / nonce / recipient / other key / bad base64 / non-ed25519 |
+| Wallet tx matching | accepts the expected transaction; rejects wrong signer, wrong receiver, wrong method, altered args, altered deposit |
+| Wallet tx outcome | rejects on-chain failure, failed receipt, unknown transaction, malformed hash, missing FunctionCall |
+| Chain replay (live) | `scripts/testnet/verify_wallet_txs.py` → 4 real testnet txs accepted, tampered plan and wrong signer refused |
+| Static wallet app | served at `/wallet/` with assets (same files Vercel hosts) |
+| Wallet actions on the simulator | refused with a clear 409 (wallet flow requires a real chain) |
+
+**Not proven:** the in-browser step (wallet popup, `signMessage`, `signAndSendTransaction`) needs a
+real extension; it cannot be exercised headlessly here.
 
 ## Not executed (and why)
 

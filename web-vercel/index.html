@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProofArena — test with your NEAR wallet</title>
+<style>
+  :root { --bg:#0b0f14; --panel:#121a23; --line:#23303f; --text:#e6edf5; --muted:#8fa3b8;
+          --accent:#61d0a4; --danger:#ff7b7b; --warn:#ffcf6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:14px 20px;
+           border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .brand { font-weight:800; font-size:18px; } .brand span { color:var(--accent); }
+  .spacer { margin-left:auto; }
+  main { max-width:1080px; margin:0 auto; padding:22px 18px 60px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px;
+          padding:16px 18px; margin:16px 0; }
+  h1 { font-size:24px; margin:6px 0 10px; } h2 { font-size:16px; margin:0 0 12px; }
+  .muted { color:var(--muted); } .small { font-size:13px; } .mono { font-family:ui-monospace,monospace; }
+  button { background:var(--accent); color:#04231a; border:1px solid var(--accent); border-radius:8px;
+           padding:8px 14px; font-weight:650; cursor:pointer; font-family:inherit; }
+  button.ghost { background:transparent; color:var(--text); border-color:var(--line); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  input, select { background:#0b1219; border:1px solid var(--line); color:var(--text);
+                  border-radius:8px; padding:9px 11px; font:inherit; width:100%; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px;
+          text-transform:uppercase; letter-spacing:.04em; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-size:11px; text-transform:uppercase; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:999px; border:1px solid var(--line);
+           font-size:11px; text-transform:uppercase; color:var(--muted); }
+  .b-OK { color:#b6f3d6; border-color:#2c7a56; } .b-BAD { color:#ffc9c9; border-color:#8a3c3c; }
+  .b-WARN { color:#ffe0a3; border-color:#7a612c; }
+  #log { white-space:pre-wrap; font-family:ui-monospace,monospace; font-size:12px;
+         background:#0a1017; border:1px solid var(--line); border-radius:8px; padding:10px;
+         max-height:260px; overflow:auto; }
+  a { color:#7cc4ff; }
+  .hint { border-left:3px solid var(--warn); padding:8px 12px; background:rgba(255,207,107,.06);
+          border-radius:6px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Proof<span>Arena</span> <span class="muted small">wallet demo</span></div>
+  <div class="spacer"></div>
+  <span class="badge" id="netBadge">testnet</span>
+  <span class="badge" id="accountBadge">not connected</span>
+  <button id="btnMeteor">Connect Meteor</button>
+  <button id="btnNightly" class="ghost">Nightly</button>
+  <button id="btnMyNear" class="ghost">MyNearWallet</button>
+</header>
+
+<main>
+  <h1>Try ProofArena with your own NEAR wallet</h1>
+  <p class="muted small">
+    Your wallet signs every transaction — this page never sees a key, and the server has none.
+    The contract is <code class="mono" id="contractLabel">…</code> on testnet.
+    Reward funds are testnet NEAR only.
+  </p>
+
+  <div class="card">
+    <h2>1. Wallet</h2>
+    <div id="log">initialising wallet selector…</div>
+    <p class="small muted" style="margin-top:10px">
+      After connecting, this page signs a NEP-413 message to prove the account is yours,
+      then asks the API for a transaction plan. The API verifies the transaction on chain
+      before it records anything.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>2. Create a bounty (you are the owner)</h2>
+    <div class="row">
+      <div><label>Title</label><input id="title" value="Allowance ledger invariant challenge"></div>
+      <div><label>Reward (NEAR)</label><input id="reward" value="0.1"></div>
+      <div><label>Submission window (s)</label><input id="submission" value="900"></div>
+      <div><label>Review window (s)</label><input id="review" value="900"></div>
+    </div>
+    <p class="small muted" style="margin-top:10px">
+      The deposit is reward + 0.001 NEAR storage. Funded from your wallet.
+    </p>
+    <p><button id="btnCreate">Create + fund with wallet</button></p>
+  </div>
+
+  <div class="card">
+    <h2>3. Bounties <button id="btnRefresh" class="ghost" style="float:right">Refresh</button></h2>
+    <div id="bounties" class="small muted">connect a wallet to load</div>
+  </div>
+
+  <div class="hint">
+    <strong>Testing tip:</strong> the AI agent steps (claim, patch, verification) are run by the
+    platform on request — use the “Run the agents” button on a bounty row. Verification executes a
+    real sandbox job, so it takes a few seconds.
+  </div>
+</main>
+
+<script src="./config.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "@near-wallet-selector/core": "https://esm.sh/@near-wallet-selector/core@8.9.15",
+    "@near-wallet-selector/meteor-wallet": "https://esm.sh/@near-wallet-selector/meteor-wallet@8.9.15",
+    "@near-wallet-selector/my-near-wallet": "https://esm.sh/@near-wallet-selector/my-near-wallet@8.9.15",
+    "@near-wallet-selector/nightly": "https://esm.sh/@near-wallet-selector/nightly@8.9.15"
+  }
+}
+</script>
+<script type="module" src="./wallet.js"></script>
+</body>
+</html>
