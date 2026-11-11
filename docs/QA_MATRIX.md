@@ -7,14 +7,14 @@ Command for the whole suite:
 
 ```
 python -m pytest tests/ -q
-→ 82 passed        (two consecutive runs, 2026-11-11)
+→ 134 passed       (escrow, runner, API, web, signer, NEAR plumbing, account bootstrap)
 ```
 
 Fresh-tree check: the committed tree was exported with `git archive HEAD` (75 files, no caches, no
 working-tree state) into a new directory and re-run:
 
 ```
-python -m pytest tests/ -q   →   82 passed
+python -m pytest tests/ -q   →   124 passed
 python scripts/e2e_demo.py   →   PATCH_VERIFIED → Paid once, 6 receipts
 ```
 
@@ -84,6 +84,43 @@ terminal, "never pays without approval".
 | Live uvicorn HTTP smoke (not TestClient) | PASS | `/health`, `/`, `/bounties`, `/bounties/new`, `/status`, `/api/meta` → 200; `/bounties/ch_nope` → 404 |
 | Live signer + API registration/login/fund flow | PASS | register → login → create → sign intent → fund → receipt `local-000001` |
 
+## NEAR testnet plumbing — offline coverage (42 tests)
+
+`python -m pytest tests/test_near_testnet.py -q` → **42 passed**. Executed:
+
+| Area | Assertion |
+|---|---|
+| base58 | known vectors (`hello world` → `StV1DL6CwTryKyV`, zero prefixes) + random round-trip + invalid chars |
+| Borsh | field order and widths pinned at byte level; action tag 2; round-trip decode of signed tx; deploy action carries exact wasm bytes |
+| signing | signature verifies against `sha256(unsigned)`; tx hash = b58(sha256(signed)); seed never appears in `repr`; mismatched embedded public key refused |
+| RPC | `view_call` base64 decoding, error surfacing, block hash, access-key nonce, `broadcast_tx_commit` success/failure parsing, `SuccessValue` decoding |
+| wallets | nonce = key nonce + 1, `InvalidNonce` retry, terminal failure raises, HTTP signer mapping, refusal handling, credentials loading/mismatch |
+| mapping | contract JSON → domain `Bounty`/`Claim` incl. lowercase attempts, dispute flag → `Disputed`, claim booleans → `ClaimState` |
+| factory | `open_chain("near-testnet")` refuses without config; unknown mode refused; API refuses testnet mode without `NEAR_CONTRACT_ID` |
+| signer service | hides private key, refuses foreign contract, unlisted method, oversized deposit, forwards allowlisted call, refuses foreign domain when signing, audit log contains no key material |
+
+**Not proven offline (must be proven by the owner's run):** that the chain accepts the Borsh
+encoding, that `create_bounty`/`approve_claim`/`request_payout` behave as specified on-chain, and
+that the contract callback settles within the polling window. A wrong encoding is rejected before
+execution (no funds move); `--dry-run` prints the round-trip decode first.
+
+## Live NEAR testnet checks (executed against `rpc.testnet.near.org`)
+
+| Check | Result | Evidence |
+|---|---|---|
+| RPC reachable, `chain_id=testnet` | PASS | node `2.14.0-rc.5` |
+| Faucet account creation | PASS | `proofarena-c23922.testnet`, 10 NEAR |
+| Credentials parse + key matches | PASS | `ed25519:DLui9BCoqkBMwgKcTank9d43TR24ERohH2Lkw7gUUnU4` |
+| Signature + Borsh accepted by the chain | PASS | tx `3E3cn3gfbJw9Lho4RgB5ntUy7QLcEieUkJ5kjwfQk22A` executed, failed with `CodeDoesNotExist` |
+| Transaction hash formula | PASS (fixed) | local id == `transaction_outcome.id`; `tx` RPC returns `FINAL` |
+| `tx` lookup by hash | PASS | same tx, `final_execution_status: FINAL` |
+| API in `near-testnet` mode boots, banner suppressed | PASS | live `/api/meta` (`chain_is_simulated=false`), `/health` |
+| Signer refuses/forwards calls correctly | PASS | live: register 200, fund 503 `CodeDoesNotExist`, audit log entries |
+| Contract deployed | **NOT RUN** | wasm never compiled here (toolchain download ~15 KB/s) |
+| On-chain lifecycle (create/approve/payout) | **NOT RUN** | needs the deployed contract |
+
+Details: `docs/TESTNET_EVIDENCE.md`.
+
 ## Not executed (and why)
 
 | Item | Status | Reason |
@@ -94,6 +131,7 @@ terminal, "never pays without approval".
 | OCI/container isolation assertions | NOT RUN | Docker not installed; process-level controls tested instead (ADR-0005) |
 | Browser E2E (Playwright) | NOT RUN | no browser automation available; HTTP + template assertions used |
 | Next.js build | NOT APPLICABLE | no npm registry; Jinja2 UI instead (ADR-0002) |
+| Live testnet transaction | NOT RUN | no network, no funded account (runbook steps 5–7) |
 | Screenshots | NOT PRODUCED | no browser/rendering tool in this environment — no fabricated images |
 
 ## Flakiness notes

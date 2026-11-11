@@ -40,6 +40,7 @@ from .canonical import canonical_bytes, sha256_hex, sha256_json, sha256_text
 from .chain import Attempt, Bounty, LocalLedger, SettlementResult, open_chain
 from .errors import (
     AuthError,
+    ChainUnavailable,
     NotFound,
     ParamError,
     ProofArenaError,
@@ -1392,20 +1393,49 @@ def create_app(
     artifacts = Path(artifacts_dir) if artifacts_dir else cfg.ARTIFACT_DIR
     fixtures = Path(fixture_root) if fixture_root else cfg.ROOT / "fixture"
     domain = domain or cfg.AUTH_DOMAIN
-    network = network or cfg.NETWORK_ID
-    contract_id = contract_id or cfg.CONTRACT_ID
-    mode = (chain_mode or cfg.CHAIN_MODE).lower()
+    mode = (chain_mode or cfg.CHAIN_MODE).strip().lower()
+    if mode in {"near-testnet", "near", "testnet"}:
+        mode = "near-testnet"
+        network = network or "near-testnet"
+        contract_id = contract_id or cfg.NEAR_CONTRACT_ID
+        if not contract_id:
+            raise ChainUnavailable(
+                "NEAR_CONTRACT_ID is not set. Deploy the contract first "
+                "(docs/TESTNET_RUNBOOK.md), then export NEAR_CONTRACT_ID."
+            )
+        # On testnet the contract dispatches its own settlement callback, so no
+        # local timer is used; the UI polls the chain state instead.
+        settlement_mode = settlement_mode or "manual"
+    else:
+        mode = "local"
+        network = network or cfg.NETWORK_ID
+        contract_id = contract_id or cfg.CONTRACT_ID
+        settlement_mode = settlement_mode or "delayed"
 
     store = Store(db)
     ledger = open_chain(chain_db, contract_id=contract_id, network=network, mode=mode)
     auth = WalletAuth(store=store, domain=domain, network=network, contract_id=contract_id)
+    if mode == "near-testnet":
+        # Bind API identity to real on-chain key ownership: the key being
+        # registered must be an access key on the account. Without this, anyone
+        # could register a key for "someone-else.testnet".
+        def _check_onchain_key(account: str, public_key_ed25519: str) -> None:
+            try:
+                ledger.rpc.view_access_key(account, public_key_ed25519)
+            except Exception as exc:
+                raise AuthError(
+                    f"key is not an access key on {account!r} (on-chain ownership check failed): "
+                    f"{str(exc)[:160]}"
+                ) from exc
+
+        auth.onchain_key_checker = _check_onchain_key
     context = AppContext(
         store=store,
         ledger=ledger,
         auth=auth,
         artifacts_dir=artifacts,
         fixture_root=fixtures,
-        settlement_mode=(settlement_mode or "delayed"),
+        settlement_mode=settlement_mode,
         internal_token=internal_token or secrets.token_urlsafe(24),
         session_secret=session_secret or cfg.session_secret(),
         chain_mode=mode,

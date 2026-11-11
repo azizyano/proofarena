@@ -54,6 +54,7 @@ def _common(request: Request) -> dict[str, Any]:
             "contract_id": ctx.ledger.contract_id,
             "settlement_mode": ctx.settlement_mode,
             "chain_is_simulated": ctx.chain_mode == "local",
+            "explorer_base": cfg.NEAR_EXPLORER_BASE,
             "wallet_url": f"http://127.0.0.1:{cfg.WALLET_PORT}",
         },
         "nav": [
@@ -231,6 +232,7 @@ async def status_page(request: Request) -> HTMLResponse:
             "rows": [
                 ("App version", __version__),
                 ("Chain mode", ctx.chain_mode),
+                ("Explorer", cfg.NEAR_EXPLORER_BASE if ctx.chain_mode != "local" else "n/a (local simulator)"),
                 ("Network label", ctx.ledger.network),
                 ("Contract label", ctx.ledger.contract_id),
                 ("Settlement mode", ctx.settlement_mode),

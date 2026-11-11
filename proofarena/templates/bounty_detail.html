@@ -91,7 +91,7 @@
 </section>
 
 <section class="card">
-  <h2>Chain receipts <span class="small muted">(local simulator)</span></h2>
+  <h2>Chain receipts <span class="small muted">({{ "NEAR testnet" if challenge.network == "near-testnet" else "local simulator" }})</span></h2>
   {% if receipts %}
   <div class="table-wrap">
     <table class="table">
@@ -103,7 +103,10 @@
           <td>{{ r.kind }}</td>
           <td class="mono small">{{ r.attempt_id or "—" }}</td>
           <td class="mono tiny">{{ r.hash[:16] }}…</td>
-          <td><a class="small" href="/transactions/{{ r.receipt_id }}">trace →</a></td>
+          <td>
+            <a class="small" href="/transactions/{{ r.receipt_id }}">trace →</a>
+            {% if r.explorer_url %}<a class="small" href="{{ r.explorer_url }}" rel="noreferrer noopener">explorer →</a>{% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>

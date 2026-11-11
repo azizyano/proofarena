@@ -12,10 +12,17 @@
   </span>
 </div>
 
+{% if receipt.explorer_url %}
+<div class="banner banner-quiet">
+  Real NEAR testnet transaction.
+  <a href="{{ receipt.explorer_url }}" rel="noreferrer noopener">Open in explorer →</a>
+</div>
+{% else %}
 <div class="banner banner-quiet">
   This receipt is from the <strong>local ledger simulator</strong>. It is not a NEAR testnet
   transaction, there is no explorer link, and no real funds moved.
 </div>
+{% endif %}
 
 <section class="grid">
   <article class="card">
@@ -28,7 +35,7 @@
       <dt>Network</dt><dd class="mono">{{ receipt.network }}</dd>
       <dt>Time (UTC)</dt><dd class="small">{{ receipt.ts_ns | int }}</dd>
       <dt>Hash</dt><dd class="mono tiny">{{ receipt.hash }}</dd>
-      <dt>Prev hash</dt><dd class="mono tiny">{{ receipt.prev_hash }}</dd>
+      <dt>Prev hash</dt><dd class="mono tiny">{{ receipt.prev_hash or "— (NEAR tx: no local chain)" }}</dd>
     </dl>
   </article>
   <article class="card">

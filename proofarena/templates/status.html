@@ -38,13 +38,17 @@
       <tr><td>G0 workspace &amp; design</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">repo, ADRs, schemas, status board</td></tr>
       <tr><td>G1 security kernel</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">41 escrow tests, runner isolation tests</td></tr>
       <tr><td>G2 API &amp; UI</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">API auth/negative tests, page tests</td></tr>
-      <tr><td>G3 testnet deployment</td><td><span class="badge" data-state="Blocked">BLOCKED</span></td><td class="small">no NEAR contract, no funded account, no RPC access</td></tr>
+      {% if meta.chain_is_simulated %}
+      <tr><td>G3 testnet deployment</td><td><span class="badge" data-state="Review">READY</span></td><td class="small">adapter + signer + deploy/smoke scripts tested offline; awaiting owner run (<code>docs/TESTNET_RUNBOOK.md</code>)</td></tr>
+      {% else %}
+      <tr><td>G3 testnet deployment</td><td><span class="badge" data-state="Verified">LIVE</span></td><td class="small">running against NEAR testnet — receipts are transaction hashes</td></tr>
+      {% endif %}
       <tr><td>G4 demo &amp; submission</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">scripts/e2e_demo.py end-to-end run</td></tr>
     </tbody>
   </table>
   <p class="small">
-    Rust toolchain and outbound network are unavailable in the build environment; see
-    <code>communications/STATUS_BOARD.md</code> for the exact commands and blockers.
+    Local mode uses the simulator; testnet mode signs real transactions. See
+    <code>communications/STATUS_BOARD.md</code> for per-task evidence.
   </p>
 </section>
 {% endblock %}

@@ -406,14 +406,28 @@ def open_chain(
     contract_id: str,
     network: str,
     mode: str = "local",
-) -> LocalLedger:
-    if mode != "local":
-        raise ChainUnavailable(
-            f"chain mode {mode!r} is not available in this build: no deployed NEAR "
-            "contract, no funded testnet account and no outbound RPC access. "
-            "See docs/adr/0004-chain-adapter.md."
+) -> ChainAdapter:
+    """Return the adapter for ``mode``.
+
+    ``local`` is always available. ``near-testnet`` requires a deployed contract,
+    a funded account and a credentials file; if any is missing the constructor
+    raises :class:`ChainUnavailable` with the exact missing item — the app never
+    silently degrades to the simulator.
+    """
+    normalized = (mode or "local").strip().lower()
+    if normalized in {"local", "local-ledger", "simulator"}:
+        return LocalLedger(db_path, contract_id=contract_id, network=network)
+    if normalized in {"near-testnet", "testnet", "near"}:
+        from .near_testnet import NearTestnetAdapter  # imported lazily: needs requests
+
+        return NearTestnetAdapter(
+            network="near-testnet",
+            contract_id=contract_id,
+            txlog_path=Path(db_path).with_name("near-txlog.sqlite3"),
         )
-    return LocalLedger(db_path, contract_id=contract_id, network=network)
+    raise ChainUnavailable(
+        f"unknown chain mode {mode!r}; expected 'local' or 'near-testnet'"
+    )
 
 
 def fingerprint(db_path: Path | str) -> str:

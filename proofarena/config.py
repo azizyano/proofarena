@@ -19,10 +19,20 @@ ARTIFACT_DIR = DATA_DIR / "artifacts"
 DB_PATH = Path(os.environ.get("PROOFARENA_DB") or (DATA_DIR / "proofarena.db"))
 SECRET_FILE = DATA_DIR / "session.secret"
 
-#: Chain mode. ``local`` is the only mode this build can execute. ``near-testnet``
-#: is accepted by the config loader but refused by the chain factory until a
-#: deployed contract and credentials exist (see docs/adr/0004-chain-adapter.md).
+#: Chain mode. ``local`` runs the SQLite simulator; ``near-testnet`` submits real
+#: transactions with the owner's key. Both adapters are implemented; testnet just
+#: needs a deployed contract plus credentials (docs/TESTNET_RUNBOOK.md).
 CHAIN_MODE = os.environ.get("PROOFARENA_CHAIN_MODE", "local").strip().lower()
+
+#: NEAR testnet settings (only read when CHAIN_MODE is near-testnet).
+NEAR_RPC_URL = os.environ.get("NEAR_RPC_URL", "https://rpc.testnet.near.org")
+NEAR_TESTNET_ACCOUNT = os.environ.get("NEAR_TESTNET_ACCOUNT", "")
+NEAR_CONTRACT_ID = os.environ.get("NEAR_CONTRACT_ID", "")
+NEAR_SIGNER_MODE = os.environ.get("PROOFARENA_NEAR_SIGNER", "native").strip().lower()
+NEAR_SETTLE_TIMEOUT_S = float(os.environ.get("PROOFARENA_NEAR_SETTLE_TIMEOUT_S", "30"))
+NEAR_EXPLORER_BASE = os.environ.get(
+    "NEAR_EXPLORER_BASE", "https://explorer.testnet.near.org/transactions"
+)
 
 #: Values that are *labels* in local mode. They are deliberately not realistic
 #: testnet account IDs: no fabricated mainnet/testnet identity is claimed.

@@ -11,6 +11,12 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+
+try:  # make Unicode output safe on legacy Windows consoles
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:  # pragma: no cover - non-reconfigurable stream
+    pass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

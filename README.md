@@ -16,11 +16,13 @@ one bounty, one winner, native token, testnet-only.
 
 | Verdict | Status |
 |---|---|
-| Local end-to-end workflow | **TESTED_LOCAL** — 74 automated tests + `scripts/e2e_demo.py` |
+| Local end-to-end workflow | **TESTED_LOCAL** — 124 automated tests + `scripts/e2e_demo.py` |
 | Escrow rules (payout/refund/approval) | **TESTED_LOCAL** via the executable reference engine |
-| Rust NEAR contract | **IMPLEMENTED_UNTESTED** — no Rust toolchain in the build environment |
-| NEAR testnet deployment | **BLOCKED** — no funded account, no deployed contract, no RPC access |
-| Overall | **READY FOR TESTNET DEMO** after the testnet steps below; **not** production |
+| NEAR testnet adapter + native signer | **OFFLINE-TESTED** — 42 tests; no live transaction sent from this build machine |
+| Rust NEAR contract | **IMPLEMENTED_UNTESTED** — `cargo test` is step 4 of the runbook |
+| NEAR testnet account + signer | **VERIFIED ON CHAIN** — account funded, a real testnet tx executed (see `docs/TESTNET_EVIDENCE.md`) |
+| NEAR testnet contract deployment | **AWAITING OWNER RUN** — needs `cargo test` + `deploy.py` (toolchain + bandwidth) |
+| Overall | **READY FOR TESTNET DEPLOYMENT** — follow `docs/TESTNET_RUNBOOK.md` |
 
 Read `communications/STATUS_BOARD.md` for per-task evidence and `docs/QA_MATRIX.md` for the
 executed test matrix. Nothing in this repo is mainnet-ready and no real funds are involved.
@@ -29,19 +31,22 @@ executed test matrix. Nothing in this repo is mainnet-ready and no real funds ar
 
 ## The one honest caveat, stated first
 
-This build environment had **no outbound network, no Rust toolchain, no Docker, no NEAR CLI and
-no funded testnet account**. Three planned components are therefore marked BLOCKED instead of
-faked:
+This build machine has **no outbound network, no Rust toolchain, no Docker and no funded testnet
+account**, so the chain path is implemented and offline-tested but has never sent a real
+transaction. Concretely:
 
-1. **NEAR testnet contract.** `contracts/escrow/src/lib.rs` is complete near-sdk 5.9 source with a
-   unit-test module, but it has not been compiled or deployed. It is **not** claimed as tested.
-2. **Chain adapter.** Settlement runs against a local ledger that implements the *same* state
-   machine as the contract (`proofarena/chain/engine.py`). Every receipt is prefixed `local-`,
-   labelled `local-ledger`, and the UI shows a persistent banner. No receipt is presented as a
-   testnet transaction.
-3. **Next.js / FastAPI.** Neither could be installed offline. The API is Starlette + Pydantic v2
-   (FastAPI's own foundation) and the UI is server-rendered Jinja2 with no build step. Routes,
-   states and API shapes match the spec.
+1. **Rust contract.** `contracts/escrow/src/lib.rs` is complete near-sdk 5.9 source with a unit-test
+   module. It has **not been compiled** here — `cargo test` is the first thing you run in the
+   runbook. Treat compile errors as expected first-run work, not as a failure of the design.
+2. **Testnet path.** A native NEAR signer (Borsh + ed25519 + JSON-RPC, no CLI dependency), a
+   testnet adapter, a hardened signer service, and deploy/preflight/smoke scripts all exist and are
+   covered by 42 offline tests. What is unproven is that the chain *accepts* the encoding — the
+   first transaction is the proof, and a wrong encoding is rejected before any funds move.
+3. **Default mode is still the local simulator.** Every local receipt is prefixed `local-`,
+   labelled `local-ledger`, and the UI shows a banner. In `near-testnet` mode receipts are real
+   transaction hashes with explorer links.
+4. **Next.js / FastAPI.** Neither could be installed offline. The API is Starlette + Pydantic v2
+   (FastAPI's own foundation) and the UI is server-rendered Jinja2 with no build step.
 
 Everything else is real and executable: wallet-grade Ed25519 signatures over canonical intents,
 the verification runner that actually executes tests in a sandbox, patch application, hash-chained
@@ -49,13 +54,13 @@ receipts, and the HTTP surface.
 
 ---
 
-## Quick start (no network required)
+## Quick start — local mode (no network required)
 
 ```bash
 # Python 3.11+ with the pinned dependencies
 pip install -r requirements.txt
 
-# 1. Verify everything (74 tests: escrow invariants, runner isolation, API, web)
+# 1. Verify everything (124 tests: escrow invariants, runner isolation, API, web, NEAR plumbing)
 python -m pytest tests/ -q
 
 # 2. Drive the entire lifecycle and print real receipts
@@ -99,20 +104,24 @@ proofarena/
   proofarena/
     chain/engine.py        authoritative escrow state machine (mirrors the Rust contract)
     chain/ledger.py        SQLite local ledger + hash-chained receipts (labelled simulated)
+    chain/near_testnet.py  real testnet adapter: signs, broadcasts, re-reads state over RPC
     chain/models.py        bounty/claim/attempt domain types
     runner.py              isolated pytest runner (network denied, env allowlist, timeouts)
     verify.py              independent before/after verification, artifacts, manifest
     patching.py            strict `git apply` of the defender diff onto the pinned baseline
-    auth/wallet.py         Ed25519 login + single-use signed intents
+    near/                  base58, Borsh, transaction signing, JSON-RPC, wallets
+    auth/wallet.py         Ed25519 login + single-use signed intents (on-chain key check on testnet)
     auth/sessions.py       HMAC session tokens, rate limiting
     store.py               off-chain read model (SQLite): challenges, claims, jobs, audit
     api.py                 HTTP API (Starlette + Pydantic v2)
     web.py + templates/    server-rendered UI, 6 routes, responsive
   contracts/escrow/        Rust near-sdk 5.9 contract + unit tests (UNCOMPILED — see verdict)
   fixture/                 intentionally vulnerable ledger, tests, prompt-injection sample
-  wallet/signer.py         local wallet signer process (stands in for a browser wallet)
+  wallet/signer.py         local demo signer (local mode)
+  wallet/near_signer.py    NEAR testnet signer service: owns the key, enforces an allowlist
   scripts/                 versions, dev server, patch builder, end-to-end demo
-  tests/                   74 tests
+  scripts/testnet/         preflight, deploy (build+sign+broadcast), live smoke test
+  tests/                   124 tests
   docs/                    ADRs, QA matrix, threat model
   communications/          status board, decision log, handoffs
 ```
@@ -179,30 +188,50 @@ hashes every artifact, and stores the manifest digest in the result.
 
 ---
 
-## Enabling NEAR testnet (blocked today)
+## Deploying to NEAR testnet (your steps)
 
-Do this in an environment with a network and a funded testnet account:
+The full sequence is in **[docs/TESTNET_RUNBOOK.md](docs/TESTNET_RUNBOOK.md)**. Short version:
 
-```bash
-rustup target add wasm32-unknown-unknown
-cd contracts/escrow && cargo test && cargo near build      # or cargo build --target wasm32-unknown-unknown --release
-near deploy <contract.testnet> <wasm> --initFunction new --initArgs '{"owner":"<owner.testnet>"}'
+```powershell
+# 1. toolchain
+rustup default stable && rustup target add wasm32-unknown-unknown
+
+# 2. account + key from https://helper.testnet.near.org, saved to
+#    %USERPROFILE%\.near-credentials\testnet\<account>.testnet.json
+
+# 3. environment
+$env:NEAR_TESTNET_ACCOUNT = "proofarena-demo-you.testnet"
+$env:NEAR_CONTRACT_ID     = $env:NEAR_TESTNET_ACCOUNT
+
+# 4. build + deploy (dry-run first)
+python scripts/testnet/preflight.py
+python scripts/testnet/deploy.py --check
+python scripts/testnet/deploy.py --dry-run
+python scripts/testnet/deploy.py --yes
+
+# 5. run in testnet mode
+python wallet/near_signer.py                                   # terminal A
+$env:PROOFARENA_CHAIN_MODE = "near-testnet"; python scripts/dev.py   # terminal B
+
+# 6. full on-chain lifecycle
+python scripts/testnet/smoke.py --reward-near 0.1
 ```
 
-Then:
+How signing works on testnet:
 
-1. Implement `NearTestnetAdapter` against the same `ChainAdapter` protocol as `LocalLedger`
-   (`proofarena/chain/ledger.py`). The `open_chain(mode="near-testnet")` factory already refuses
-   to pretend.
-2. Replace signed intents with real wallet-signed `Action`s (the payload shapes are already bound
-   to `bounty_id` / `claim_id` / `contract_id` / `network`).
-3. Keep the callback path: `on_payout_complete` must remain `#[private]` and id-checked.
-4. Re-run `python -m pytest tests/ -q` plus the contract suite, then record a real funding,
-   approval and payout receipt. Only then change the verdict to `VERIFIED_TESTNET`.
+* `wallet/near_signer.py` owns the key and is the only process that signs.
+* The API calls it over HTTP with a **contract + method allowlist, a deposit cap and a rate limit**.
+* The browser calls the same service for login/approval signatures.
+* On testnet, key registration is additionally checked against the chain: the key must be a real
+  access key on the account, so nobody can claim someone else's account id.
 
-Do **not** point this build at mainnet. `PROOFARENA_CHAIN_MODE` accepts `local` only.
+A testnet account is already funded and the signing path is proven against the real chain:
+`proofarena-c23922.testnet`, evidence in **[docs/TESTNET_EVIDENCE.md](docs/TESTNET_EVIDENCE.md)**.
+You do not need the faucet unless you want your own account
+(`python scripts/testnet/create_account.py`).
 
----
+If a transaction is ever rejected with `InvalidTxError`, retry with
+`PROOFARENA_NEAR_WALLET=cli` to delegate signing to the official `near` CLI — see ADR-0006.
 
 ## Security notes
 

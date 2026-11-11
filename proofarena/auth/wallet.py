@@ -103,6 +103,10 @@ class WalletAuth:
     contract_id: str
     login_ttl_s: int = 300
     intent_ttl_s: int = 300
+    #: Optional ``checker(account, "ed25519:<b58>")`` that must succeed before a
+    #: key is accepted. On testnet this verifies the key is a real access key on
+    #: the account, so nobody can claim someone else's account id.
+    onchain_key_checker: Any = None
 
     # ------------------------------------------------------------------
     # registration (proof of possession)
@@ -131,6 +135,10 @@ class WalletAuth:
             raise AuthError("invalid account id")
         message = self.registration_message(account, public_key_b64, nonce)
         verify_signature(public_key_b64, message, signature_b64)
+        if self.onchain_key_checker is not None:
+            from ..near.signing import public_key_b64_to_ed25519
+
+            self.onchain_key_checker(account, public_key_b64_to_ed25519(public_key_b64))
         self.store.register_key(account, public_key_b64)
         self.store.audit(actor=account, action="wallet_key_registered", entity="user", entity_id=account)
         return message
