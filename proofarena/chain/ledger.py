@@ -6,8 +6,9 @@ transaction. The state machine it drives is the same one specified for
 ``contracts/escrow/src/lib.rs``.
 
 Honesty boundary: `docs/adr/0004-chain-adapter.md` and the UI banner both state
-that settlement here is local and that NEAR testnet deployment is blocked on
-credentials/network.
+that settlement here is local. The project also has a verified NEAR testnet
+deployment (`docs/TESTNET_EVIDENCE.md`); this adapter is what the tests and the
+offline demo use.
 """
 
 from __future__ import annotations

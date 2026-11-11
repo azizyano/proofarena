@@ -21,8 +21,9 @@
   {% if meta.chain_is_simulated %}
   <div class="banner" role="status">
     CHAIN MODE: <strong>LOCAL SIMULATOR</strong> ({{ meta.network }}) — receipts below are
-    <strong>not</strong> NEAR testnet transactions and no real funds move. NEAR testnet deployment is
-    <strong>BLOCKED</strong> in this build.
+    <strong>not</strong> NEAR testnet transactions and no real funds move. This instance runs the
+    simulator; the project also has a verified NEAR testnet deployment
+    (<code>docs/TESTNET_EVIDENCE.md</code>).
   </div>
   {% endif %}
 

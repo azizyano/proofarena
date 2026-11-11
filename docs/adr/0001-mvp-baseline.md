@@ -42,6 +42,14 @@ jsonschema 4.26.0 · cryptography 47.0.0 · pytest 8.3.4 · httpx 0.28.1
 near-sdk 5.9.0 (declared, unresolved) · git 2.50.1.windows.1
 ```
 
+## Update (2026-11-11, later the same day)
+
+The environment changed after this ADR was written: network access became available to Python, a Rust
+toolchain was installed on the owner's machine, and the contract was compiled and deployed to NEAR
+testnet. The table above is the historical inventory of the authoring container — read it as "why the
+first iteration looked like this", not as the current state. `cargo test` still has not been executed;
+that limitation is recorded in the README and the QA matrix.
+
 ## Consequences
 
 - The demo runs on a fresh checkout with **zero network calls**.

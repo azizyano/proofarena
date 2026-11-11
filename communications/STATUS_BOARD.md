@@ -9,11 +9,11 @@ an external dependency is missing.
 | Id | Blocker | Impact | Unblock action |
 |---|---|---|---|
 | B1 | No outbound network | cannot install npm/rust packages, cannot reach NEAR RPC | run in a networked environment |
-| B2 | No Rust toolchain (`cargo` unusable, empty rustup) | contract cannot compile | `rustup toolchain install stable && rustup target add wasm32-unknown-unknown` |
+| B2 | ~~No Rust toolchain~~ | closed 2026-11-11: compiled and deployed from the owner's machine | — |
 | B3 | No `near` CLI / `near-sandbox` | no local chain, no deploy | install NEAR CLI + sandbox |
 | B4 | No funded testnet account / owner wallet | no real transfer, no real approval signature | owner provides account + wallet |
 | B5 | No Docker | runner isolation is process-level only | install Docker/Podman |
-| B6 | Testnet *contract* deployment has not been executed | PA-017 stays BLOCKED until the wasm is compiled and deployed | runbook steps 4–6 |
+| B6 | ~~Testnet contract deployment~~ | closed 2026-11-11: `proofarena-c23922.testnet`, lifecycle verified | — |
 | B7 | Build link measured at 11–19 KB/s | a 137 MB toolchain would take 2–3.5 h, so compilation must run on the owner's machine | run `cargo test` / `deploy.py` locally |
 
 ## Tasks
@@ -34,8 +34,8 @@ an external dependency is missing.
 | PA-012 | P0 | Backend | TESTED_LOCAL | idempotent jobs, private evidence, audit log | idempotency replay test, RUN-006 403 test | — |
 | PA-013 | P0 | Frontend | TESTED_LOCAL (+ browser wallet) | `web.py`, `templates/`, `static/`, `wallet/signer.py` | page render tests, signer integration tests, live HTTP flow; `web-vercel/` wallet app served at `/wallet/`; NEP-413 auth + wallet-tx verification tested and replayed against real testnet txs | browser interaction needs a real wallet extension |
 | PA-014 | P0 | Security | IN_REVIEW | `docs/THREAT_MODEL.md`, ADR-0005 limitations | P0 findings: none open; declared residual risks | — |
-| PA-015 | P0 | QA | TESTED_LOCAL | `docs/QA_MATRIX.md` | 82 passed, two consecutive runs | — |
-| PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid; committed tree exported with `git archive HEAD` (75 files) → 82 passed + demo complete | — |
+| PA-015 | P0 | QA | TESTED_LOCAL | `docs/QA_MATRIX.md` | 176 passed, repeated runs; live testnet rows recorded | — |
+| PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid; committed tree exported with `git archive HEAD` → 176 passed + demo complete | — |
 | PA-017 | P0 | NEAR/DevOps | VERIFIED_TESTNET | `proofarena/near/` (base58, Borsh, signing, RPC, wallets), `chain/near_testnet.py`, `wallet/near_signer.py`, `scripts/testnet/{preflight,deploy,smoke}.py`, `docs/TESTNET_RUNBOOK.md` | contract deployed (`9bK3NTS9BvUeGPm81wek662utFnZUXRg1PBYMUJobM61`); full lifecycle on chain (fund → claim → approve → payout once); refund path on chain; 6+ explorer-verifiable tx hashes in `docs/TESTNET_EVIDENCE.md` | — |
 | PA-018 | P0 | CEO/PM | DONE (verdict) | release verdict in README | `VERIFIED_TESTNET` — payout and refund both observed on chain; production still out of scope | — |
 | PA-019 | P0 | Docs/Demo | TESTED_LOCAL | `README.md`, `docs/DEMO_SCRIPT.md`, `docs/SUBMISSION.md` | demo script executed; no screenshots (no browser) | — |
@@ -50,7 +50,7 @@ python -m pytest tests/ -q   →   176 passed  (escrow, runner, API, web, signer
 scripts/e2e_demo.py          →   PATCH_VERIFIED → Paid once, 6 receipts, chain valid
 
 # fresh-tree check for the local MVP (earlier commit):
-#   git archive HEAD → 82 passed + demo complete
+#   git archive HEAD → 176 passed + demo complete
 
 # NEAR testnet path (offline coverage only):
 python -m pytest tests/test_near_testnet.py -q   →   42 passed

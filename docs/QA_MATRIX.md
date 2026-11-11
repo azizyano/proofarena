@@ -1,7 +1,8 @@
 # QA matrix — executed results
 
-Environment: Windows 11 (10.0.26300), Python 3.12.4, no network, no Docker, no Rust toolchain
-(`docs/runtime-inventory.json`). Every row below was executed; nothing is inferred from source.
+Environment: Windows 11 (10.0.26300), Python 3.12.4. The authoring container had no Rust toolchain
+and no npm access; network was available to Python, which is how the live testnet rows were executed.
+Every row below states what was actually run.
 
 Command for the whole suite:
 
@@ -14,7 +15,7 @@ Fresh-tree check: the committed tree was exported with `git archive HEAD` (75 fi
 working-tree state) into a new directory and re-run:
 
 ```
-python -m pytest tests/ -q   →   124 passed
+python -m pytest tests/ -q   →   176 passed
 python scripts/e2e_demo.py   →   PATCH_VERIFIED → Paid once, 6 receipts
 ```
 
@@ -147,9 +148,9 @@ real extension; it cannot be exercised headlessly here.
 
 | Item | Status | Reason |
 |---|---|---|
-| `cargo test` on `contracts/escrow` | NOT RUN | no Rust toolchain, no crates.io access |
+| `cargo test` (contract unit tests) | NOT RUN | no Rust toolchain in the authoring container; the contract was compiled and deployed from the owner's machine, but its `#[cfg(test)]` module was never executed |
 | NEAR Sandbox transfer tests | NOT RUN | `near-sandbox` not installed |
-| NEAR testnet deploy + real payout | BLOCKED | no funded account, no RPC access, no deployed contract |
+| NEAR testnet deploy + real payout | **PASS** (from the owner's machine) | contract `proofarena-c23922.testnet`; live rows in the section above |
 | OCI/container isolation assertions | NOT RUN | Docker not installed; process-level controls tested instead (ADR-0005) |
 | Browser E2E (Playwright) | NOT RUN | no browser automation available; HTTP + template assertions used |
 | Next.js build | NOT APPLICABLE | no npm registry; Jinja2 UI instead (ADR-0002) |
@@ -162,4 +163,4 @@ real extension; it cannot be exercised headlessly here.
   raw `output_sha256` still hashes the complete output.
 - The flakiness *detector* is tested with an injected alternating runner, not with real randomness —
   a randomly flaky test would make the assertion flaky.
-- Two full-suite runs were executed back to back to confirm stability (82 passed both times).
+- Multiple full-suite runs were executed back to back to confirm stability (176 passed each time).

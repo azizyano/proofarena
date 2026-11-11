@@ -7,7 +7,7 @@ receipt as a testnet transaction.
 
 ```bash
 pip install -r requirements.txt
-python -m pytest tests/ -q                 # expect: 82 passed
+python -m pytest tests/ -q                 # expect: 176 passed
 python scripts/e2e_demo.py                 # expect: PATCH_VERIFIED → Paid once
 ```
 
@@ -65,9 +65,9 @@ Demo steps `[9]`–`[12]`, or in the UI: **Approve (sign)** → **Request payout
 Open `/status` and a `/transactions/local-000001` page: hash chain valid, receipt commits to its
 predecessor. Then read the release verdict out loud:
 
-> "82 tests pass locally. The Rust contract is written but never compiled here. NEAR testnet
-> deployment is BLOCKED — no toolchain, no funded account, no RPC. That is why every receipt says
-> `local-ledger`. Here is the exact command to unblock it."
+> "176 tests pass locally. The escrow contract is deployed on NEAR testnet and has paid out and
+> refunded for real — the transaction hashes are in docs/TESTNET_EVIDENCE.md. This recording runs the
+> local simulator so it works without a network, which is why these receipts say `local-ledger`."
 
 ## Failure paths worth showing (optional, 20s)
 

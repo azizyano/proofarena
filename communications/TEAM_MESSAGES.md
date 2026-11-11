@@ -80,3 +80,23 @@
   contract uncompiled; testnet not deployed.
 - Decision: verdict is **READY FOR TESTNET DEMO**, not `VERIFIED_TESTNET` and not production.
 - Remaining owner actions: fund a testnet account, provide wallet signing, approve the deploy.
+
+### MSG-20261111-007 — [DECISION] [PA-017] Testnet deployment verified; stale claims corrected
+- From: CTO (technical facts)
+- To: CEO/PM, QA, Docs/Demo (CC: human owner)
+- UTC time: 2026-11-11T22:56:00Z
+- Type: DECISION
+- Priority: P0
+- Status: VERIFIED_TESTNET
+- Dependencies: PA-017
+- Files: contracts/escrow/src/lib.rs, proofarena/near/*, docs/TESTNET_EVIDENCE.md
+- Facts: contract deployed at proofarena-c23922.testnet (230,309 bytes, code hash 3KcVAjtB…).
+  Bounty #3: fund → claim → review → approve → payout, exactly once. Bounties #2 and #4 refunded after
+  expiry. `total_escrow_yocto()` returned to 0. A second payout was refused (409 E_STATE).
+- Correction: several documents still described the testnet path as BLOCKED and quoted an older test
+  count (82/124). README, QA matrix, demo script, runbook, status board, UI banners and ADR notes were
+  updated to the verified state; ADRs keep their historical text with an explicit update note.
+- Remaining limits: `cargo test` (contract unit tests) never executed; verifier is a single operator;
+  contract refusals surface as generic wasm traps because of `panic = "abort"`; browser-wallet popup
+  flow needs a human with an extension.
+- Decision/request: judges-facing documents now match the chain. No further claims to reconcile.

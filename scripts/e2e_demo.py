@@ -397,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
         "receipts": [r["receipt_id"] for r in receipts["receipts"]],
         "receipt_chain_valid": receipts["receipt_chain"]["valid"],
         "approval_eligible": verified.json()["approval_eligible"],
-        "testnet": "NOT DEPLOYED - blocked on credentials and network access",
+        "testnet": "this run is local-only; the verified testnet run is docs/TESTNET_EVIDENCE.md",
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -406,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"settlement   : {final['state']} exactly once ({final['chain']['paid_yocto']} yocto units)")
     print(f"receipts     : {len(receipts['receipts'])} (hash chain valid)")
     print(f"evidence     : {run_dir}")
-    print("testnet      : NOT DEPLOYED — see communications/STATUS_BOARD.md")
+    print("testnet      : this run is local-only — real deployment: docs/TESTNET_EVIDENCE.md")
     return 0
 
 

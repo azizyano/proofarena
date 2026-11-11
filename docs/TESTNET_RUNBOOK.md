@@ -29,7 +29,7 @@ What you will end up with:
 ```powershell
 cd proofarena
 pip install -r requirements.txt
-python -m pytest tests/ -q          # expect: 124 passed (no network needed)
+python -m pytest tests/ -q          # expect: 176 passed (no network needed)
 ```
 
 If this fails, stop and send me the output. Everything above is offline.

@@ -74,17 +74,21 @@ No other chain, no token, no mainnet.
 
 ## The one honest caveat, stated first
 
-This build machine has **no outbound network, no Rust toolchain, no Docker and no funded testnet
-account**, so the chain path is implemented and offline-tested but has never sent a real
-transaction. Concretely:
+Two environments were involved, and the distinction matters:
 
-1. **Rust contract.** `contracts/escrow/src/lib.rs` is complete near-sdk 5.9 source with a unit-test
-   module. It has **not been compiled** here — `cargo test` is the first thing you run in the
-   runbook. Treat compile errors as expected first-run work, not as a failure of the design.
-2. **Testnet path.** A native NEAR signer (Borsh + ed25519 + JSON-RPC, no CLI dependency), a
-   testnet adapter, a hardened signer service, and deploy/preflight/smoke scripts all exist and are
-   covered by 42 offline tests. What is unproven is that the chain *accepts* the encoding — the
-   first transaction is the proof, and a wrong encoding is rejected before any funds move.
+* The container this repository was authored in had **no Rust toolchain**, so the contract could not
+  be compiled there. It was compiled and deployed from the owner's machine, and the deployment,
+  payout and refund are recorded on chain (see `docs/TESTNET_EVIDENCE.md`).
+* The authoring container also had **no npm access**, so the current UI is server-rendered Jinja2
+  plus a build-free wallet page; it is not Next.js.
+
+Concretely:
+
+1. **Contract unit tests (`cargo test`) were not executed.** The contract compiles (it is deployed)
+   and its rules are mirrored by 41 executed Python tests, but the `#[cfg(test)]` module itself has
+   not been run. Do not read a green build as "unit tests passed".
+2. **The verifier is a single operator.** Re-execution is independent of the auditor, but it is not
+   a trustless quorum or an attestation network.
 3. **Default mode is still the local simulator.** Every local receipt is prefixed `local-`,
    labelled `local-ledger`, and the UI shows a banner. In `near-testnet` mode receipts are real
    transaction hashes with explorer links.

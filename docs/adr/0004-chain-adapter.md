@@ -1,6 +1,9 @@
 # ADR-0004 — Chain adapter: local ledger now, NEAR testnet blocked
 
-- **Status:** accepted; testnet path explicitly BLOCKED
+- **Status:** accepted, then **shipped and verified** (2026-11-11). The "blocked" wording below
+  describes the authoring container, not the final state: the contract was compiled and deployed from
+  the owner's machine, and the lifecycle plus refunds ran on chain — see `docs/TESTNET_EVIDENCE.md`
+  and ADR-0006.
 - **Date:** 2026-11-11
 - **Tasks:** PA-004, PA-005, PA-017
 
@@ -18,7 +21,8 @@ access. A real deployment is not merely inconvenient here — it is impossible.
    Receipts are `local-000001…`, `network="local-ledger"`, and every UI surface that shows them also
    shows a "LOCAL SIMULATOR — not NEAR testnet" banner.
 3. Write the Rust contract (`contracts/escrow/src/lib.rs`) against near-sdk 5.9 encoding identical
-   rules, with a unit-test module. Mark it `IMPLEMENTED_UNTESTED` because it was never compiled.
+   rules, with a unit-test module. Marked `IMPLEMENTED_UNTESTED` at the time because it had not been
+   compiled in the authoring container (it was compiled and deployed later, from the owner's machine).
 4. Make the adapter boundary explicit: `open_chain(mode=...)` raises `E_CHAIN_UNAVAILABLE` for any
    mode other than `local`. Tests assert this refusal.
 
