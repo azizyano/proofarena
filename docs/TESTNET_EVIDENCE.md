@@ -76,6 +76,27 @@ Bounty **#4**, 30-second submission and review windows, no claim submitted:
 
 Final state: `Refunded`, `refunded_yocto = 20000000000000000000000`, escrow `0`.
 
+## 3b. Cleaned-up final state (all four settlements exercised)
+
+The interrupted run that left bounty #2 open was refunded once its grace period expired, so the
+contract now has **zero outstanding liability** and both terminal paths are represented:
+
+| Bounty | State | Paid | Refunded | Transaction |
+|---|---|---|---|---|
+| #1 | Paid | 0.1 NEAR | — | `6mxzbdYBpFHjgo4aJxdSjYJm1cnigJG1sJYmsgAhi4nP` |
+| #2 | Refunded | — | 0.1 NEAR | [`EYyzkpCuQkxkv2U29vZr81W4SoFQKJs8mmU2UW9Fgtcd`](https://explorer.testnet.near.org/transactions/EYyzkpCuQkxkv2U29vZr81W4SoFQKJs8mmU2UW9Fgtcd) |
+| #3 | Paid | 0.1 NEAR | — | `AVwQZ4mdAmSmw6YiKS34FNn1mdd3YgKFX5tW5unXkRap` |
+| #4 | Refunded | — | 0.02 NEAR | `H5eGNidaraf6akVhzggE7hNJzbaUynTGgptFVoZRe5bZ` |
+
+```
+total_escrow_yocto()  ->  0
+owner balance         ->  1.7918 NEAR  (0.3 spent on two rewards, the rest is gas + storage)
+auditor balance       ->  10.1996 NEAR (received both 0.1 rewards)
+```
+
+Conservation, observed on the real chain: every yocto that went in either reached the approved
+winner or came back to the owner. No bounty is both paid and refunded; nothing is stuck.
+
 ## 4. Independent verification (anyone can re-run this)
 
 ```powershell
@@ -116,9 +137,7 @@ A real network finds things a mock cannot. Each of these now has a regression te
 
 ## 6. Honest caveats
 
-1. **Bounty #2 is intentionally left `Open`** with 0.1 NEAR escrowed. It came from a run that was
-   interrupted before a claim existed. It becomes refundable after its review window; the refund
-   endpoint settles it exactly like bounty #4. Until then `total_escrow_yocto = 1e23`.
+1. **Bounty #2 was refunded** after its grace period (see 3b); escrow liability is now `0`.
 2. **Contract panics surface as generic wasm traps.** `panic = "abort"` in the release profile (a
    size optimisation) drops assertion messages, so a refusal appears as
    `WebAssembly trap: An unreachable opcode was executed` instead of the human sentence. The API

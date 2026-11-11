@@ -22,7 +22,7 @@ one bounty, one winner, native token, testnet-only.
 | Rust NEAR contract | **IMPLEMENTED_UNTESTED** — `cargo test` is step 4 of the runbook |
 | NEAR testnet contract | **DEPLOYED** — `proofarena-c23922.testnet`, 230 KB wasm, code hash `3KcVAjtB…` |
 | On-chain lifecycle | **VERIFIED_TESTNET** — fund → claim → verify → approve → payout, exactly once |
-| On-chain refund path | **VERIFIED_TESTNET** — expired bounty refunded after the grace period |
+| On-chain refund path | **VERIFIED_TESTNET** — two expired bounties refunded; escrow liability 0 |
 | Overall | **VERIFIED ON NEAR TESTNET** — receipts and caveats in `docs/TESTNET_EVIDENCE.md` |
 
 Read `communications/STATUS_BOARD.md` for per-task evidence and `docs/QA_MATRIX.md` for the

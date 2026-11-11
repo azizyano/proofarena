@@ -122,6 +122,7 @@ execution (no funds move); `--dry-run` prints the round-trip decode first.
 | Second payout refused on chain | **PASS** | `409 E_STATE` from the contract |
 | On-chain refund after grace period | **PASS** | bounty #4, `H5eGNida…`; state `Refunded` |
 | Early refund refused on chain | **PASS** | `409 E_STATE`, no transaction emitted |
+| Abandoned bounty refunded after grace; escrow liability reaches 0 | **PASS** | bounty #2 → `EYyzkpCu…`; `total_escrow_yocto() → 0` |
 
 Details: `docs/TESTNET_EVIDENCE.md`.
 
