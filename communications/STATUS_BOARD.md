@@ -33,7 +33,7 @@ an external dependency is missing.
 | PA-013 | P0 | Frontend | TESTED_LOCAL | `web.py`, `templates/`, `static/`, `wallet/signer.py` | page render tests, signer integration tests, live HTTP flow | screenshots need a browser |
 | PA-014 | P0 | Security | IN_REVIEW | `docs/THREAT_MODEL.md`, ADR-0005 limitations | P0 findings: none open; declared residual risks | — |
 | PA-015 | P0 | QA | TESTED_LOCAL | `docs/QA_MATRIX.md` | 82 passed, two consecutive runs | — |
-| PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid | — |
+| PA-016 | P0 | CTO/QA | TESTED_LOCAL | `scripts/e2e_demo.py` | full lifecycle run, 6 receipts, chain valid; committed tree exported with `git archive HEAD` (75 files) → 82 passed + demo complete | — |
 | PA-017 | P0 | NEAR/DevOps | BLOCKED | — | no wasm, no account, no RPC | B5+B4+B2/B3 |
 | PA-018 | P0 | CEO/PM | DONE (verdict) | release verdict in README | `READY FOR TESTNET DEMO`, not `VERIFIED_TESTNET` | — |
 | PA-019 | P0 | Docs/Demo | TESTED_LOCAL | `README.md`, `docs/DEMO_SCRIPT.md`, `docs/SUBMISSION.md` | demo script executed; no screenshots (no browser) | — |
@@ -46,6 +46,11 @@ an external dependency is missing.
 ```
 python -m pytest tests/ -q   →   82 passed   (two consecutive runs)
 scripts/e2e_demo.py          →   PATCH_VERIFIED → Paid once, 6 receipts, chain valid
+
+# fresh-tree check (no working-tree state, no caches, 75 committed files):
+git archive --format=zip -o head.zip HEAD && expand into a new directory
+  python -m pytest tests/ -q  →   82 passed
+  python scripts/e2e_demo.py  →   PATCH_VERIFIED → Paid once
 ```
 
 ## Current P0 risks (open)

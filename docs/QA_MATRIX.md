@@ -10,6 +10,14 @@ python -m pytest tests/ -q
 → 82 passed        (two consecutive runs, 2026-11-11)
 ```
 
+Fresh-tree check: the committed tree was exported with `git archive HEAD` (75 files, no caches, no
+working-tree state) into a new directory and re-run:
+
+```
+python -m pytest tests/ -q   →   82 passed
+python scripts/e2e_demo.py   →   PATCH_VERIFIED → Paid once, 6 receipts
+```
+
 ## Functional acceptance (AT)
 
 | ID | Scenario | Result | Evidence |
