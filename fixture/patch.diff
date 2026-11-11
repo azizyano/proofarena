@@ -1,0 +1,35 @@
+--- a/ledger.py
++++ b/ledger.py
+@@ -1,13 +1,7 @@
+-"""INTENTIONALLY VULNERABLE FIXTURE — do not deploy, do not reuse.
++"""PATCHED FIXTURE (PA-008) — same API, unit conversion corrected.
+ 
+-Synthetic target for the ProofArena demo: a prepaid allowance ledger that tracks
+-balances in **cents** and lets a client withdraw in **whole units**.
+-
+-Seeded defect (PA-006): ``withdraw`` compares the whole-unit amount directly
+-against the cent balance, then debits ``amount * 100`` cents. A caller can drain
+-up to 100x the locked balance and push the account negative.
+-
+-Expected invariant: cumulative withdrawals must never exceed the funded balance.
++The only behavioural change: the balance check converts the whole-unit request
++into cents before comparing, so the debit can never exceed the locked balance.
+ """
+ 
+ from __future__ import annotations
+@@ -67,12 +61,11 @@
+             raise LedgerError("withdrawal must be positive")
+         account = self._account(owner)
+ 
+-        # DEFECT: unit mismatch. `amount_units` is compared against a cent
+-        # balance as if it were already in cents.
+-        if amount_units > account.locked_cents:
++        debit_cents = amount_units * CENT
++        # FIX: compare like units before debiting.
++        if debit_cents > account.locked_cents:
+             raise LedgerError("insufficient locked balance")
+ 
+-        debit_cents = amount_units * CENT
+         account.locked_cents -= debit_cents
+         account.withdrawn_cents += debit_cents
+         return debit_cents

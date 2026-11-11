@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ challenge.title }} — ProofArena{% endblock %}
+{% block page %}bounty{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>{{ challenge.title }}</h1>
+    <p class="mono small">{{ challenge.id }} · bounty #{{ challenge.onchain_bounty_id or "—" }}</p>
+  </div>
+  <span class="badge badge-lg" data-state="{{ challenge.state }}">{{ challenge.state }}</span>
+</div>
+
+<section class="grid">
+  <article class="card">
+    <h2>Challenge</h2>
+    <dl class="facts">
+      <dt>Owner</dt><dd class="mono">{{ challenge.owner }}</dd>
+      <dt>Reward</dt><dd class="mono">{{ challenge.reward_yocto | fmt_near }}</dd>
+      <dt>Source commit</dt><dd class="mono small">{{ challenge.source_commit }}</dd>
+      <dt>Metadata hash</dt><dd class="mono small">{{ challenge.metadata_hash_hex }}</dd>
+      <dt>Submission ends</dt><dd class="small">{{ challenge.deadline_utc }}</dd>
+      <dt>Review ends</dt><dd class="small">{{ challenge.review_deadline_utc }}</dd>
+      <dt>Network</dt><dd class="mono small">{{ challenge.network }}</dd>
+    </dl>
+    <details>
+      <summary>Authorized scope</summary>
+      <pre class="code"><code>{{ challenge.scope | tojson(indent=2) }}</code></pre>
+    </details>
+  </article>
+
+  <article class="card" id="owner-console" data-challenge-id="{{ challenge.id }}">
+    <h2>Owner console</h2>
+    <p class="small muted">Every privileged action below requires a wallet signature.</p>
+    <div class="stack">
+      <button class="btn" data-action="issue-auditor">Issue auditor token</button>
+      <button class="btn" data-action="issue-defender">Issue defender token</button>
+      <button class="btn" data-action="refresh">Refresh state</button>
+    </div>
+    <pre id="token-out" class="code out" hidden></pre>
+
+    <h3>Claims</h3>
+    {% if claims %}
+    <ul class="list">
+      {% for claim in claims %}
+      <li>
+        <span class="mono small">{{ claim.id }}</span>
+        <span class="badge" data-state="{{ claim.status }}">{{ claim.status }}</span>
+        <a class="small" href="/evidence/{{ claim.id }}">evidence →</a>
+        <button class="btn btn-small" data-action="approve" data-claim-id="{{ claim.id }}">
+          Approve (sign)
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty small">No claims yet.</p>
+    {% endif %}
+
+    <h3>Settlement</h3>
+    <div class="stack">
+      <button class="btn" data-action="payout">Request payout (sign)</button>
+      <button class="btn btn-ghost" data-action="refund">Refund expired (sign)</button>
+      <button class="btn btn-ghost" data-action="dispute">Toggle dispute</button>
+    </div>
+    <p class="small muted" id="settlement-note"></p>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Verification jobs</h2>
+  {% if jobs %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Job</th><th>Runner</th><th>Result</th><th>Claim</th><th>Created</th></tr></thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td class="mono small">{{ job.id }}</td>
+          <td><span class="badge" data-state="{{ job.status }}">{{ job.status }}</span></td>
+          <td><span class="badge" data-state="{{ job.result_status or 'None' }}">{{ job.result_status or "—" }}</span></td>
+          <td class="mono small">{{ job.claim_id }}</td>
+          <td class="small">{{ job.created_utc }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty small">No verification job yet. An owner runs verification after a patch is submitted.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Chain receipts <span class="small muted">(local simulator)</span></h2>
+  {% if receipts %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Receipt</th><th>Event</th><th>Attempt</th><th>Hash</th><th></th></tr></thead>
+      <tbody>
+        {% for r in receipts %}
+        <tr>
+          <td class="mono small">{{ r.receipt_id }}</td>
+          <td>{{ r.kind }}</td>
+          <td class="mono small">{{ r.attempt_id or "—" }}</td>
+          <td class="mono tiny">{{ r.hash[:16] }}…</td>
+          <td><a class="small" href="/transactions/{{ r.receipt_id }}">trace →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty small">No receipts yet.</p>
+  {% endif %}
+  <p class="small"><a href="/arena/{{ challenge.id }}">agent progress log →</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProofArena Verification Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "job_id",
+    "claim_id",
+    "status",
+    "source_commit",
+    "runner_image_digest",
+    "baseline",
+    "patched",
+    "scope_valid",
+    "limitations",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 4
+    },
+    "claim_id": {
+      "type": "string",
+      "minLength": 4
+    },
+    "status": {
+      "enum": [
+        "REPRODUCED",
+        "PATCH_VERIFIED",
+        "REJECTED",
+        "INCONCLUSIVE"
+      ]
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "runner_image_digest": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256
+    },
+    "baseline": {
+      "$ref": "#/$defs/check"
+    },
+    "patched": {
+      "$ref": "#/$defs/check"
+    },
+    "scope_valid": {
+      "type": "boolean"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 32
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reviewer_kind": {
+      "enum": [
+        "human",
+        "agent",
+        "deterministic_runner",
+        "none"
+      ]
+    },
+    "verified_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "exit_code",
+        "invariant_failed",
+        "output_sha256"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": -255,
+          "maximum": 255
+        },
+        "invariant_failed": {
+          "type": "boolean"
+        },
+        "output_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

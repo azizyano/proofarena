@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Arena {{ challenge.id }} — ProofArena{% endblock %}
+{% block page %}arena{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Arena progress</h1>
+    <p class="mono small">{{ challenge.id }}</p>
+  </div>
+  <span class="badge badge-lg" data-state="{{ challenge.state }}">{{ challenge.state }}</span>
+</div>
+
+<p class="small muted">
+  Append-only view: application audit events and hash-chained local-ledger receipts. Chain rows are
+  simulated; they are not testnet transactions.
+</p>
+
+<ol class="timeline">
+  {% for e in events %}
+  <li class="tl-item" data-kind="{{ e.kind }}">
+    <div class="tl-dot"></div>
+    <div class="tl-body">
+      <div class="tl-head">
+        <strong>{{ e.action }}</strong>
+        <span class="small muted">{{ e.created_utc }}</span>
+      </div>
+      <div class="small mono">{{ e.actor }}</div>
+      {% if e.receipt_id %}
+      <div class="small">
+        <a href="/transactions/{{ e.receipt_id }}">{{ e.receipt_id }}</a>
+        <span class="mono tiny muted">hash {{ e.hash[:20] }}…</span>
+      </div>
+      {% endif %}
+      <pre class="code tiny"><code>{{ e.payload | tojson }}</code></pre>
+    </div>
+  </li>
+  {% else %}
+  <li class="empty">No events yet.</li>
+  {% endfor %}
+</ol>
+{% endblock %}

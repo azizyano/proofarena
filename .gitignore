@@ -1,0 +1,34 @@
+# Local runtime state — never commit
+evidence/
+!.gitkeep
+.pytest_tmp/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Secrets and keys
+.env
+.env.*
+!.env.example
+session.secret
+wallet/*.json
+wallet/owner.key.json
+
+# Build output
+contracts/escrow/target/
+contracts/escrow/res/
+node_modules/
+dist/
+build/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+pytest-cache-files-*/
+

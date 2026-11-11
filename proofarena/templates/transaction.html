@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ receipt.receipt_id }} — ProofArena{% endblock %}
+{% block page %}transaction{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Settlement trace</h1>
+    <p class="mono small">{{ receipt.receipt_id }} · {{ receipt.kind }}</p>
+  </div>
+  <span class="badge" data-state="{{ bounty.effective_state.value if bounty else 'Unknown' }}">
+    {{ bounty.effective_state.value if bounty else "Unknown" }}
+  </span>
+</div>
+
+<div class="banner banner-quiet">
+  This receipt is from the <strong>local ledger simulator</strong>. It is not a NEAR testnet
+  transaction, there is no explorer link, and no real funds moved.
+</div>
+
+<section class="grid">
+  <article class="card">
+    <h2>Receipt</h2>
+    <dl class="facts">
+      <dt>Sequence</dt><dd class="mono">{{ receipt.seq }}</dd>
+      <dt>Event</dt><dd>{{ receipt.kind }}</dd>
+      <dt>Bounty</dt><dd class="mono">#{{ receipt.bounty_id }}</dd>
+      <dt>Attempt</dt><dd class="mono">{{ receipt.attempt_id or "—" }}</dd>
+      <dt>Network</dt><dd class="mono">{{ receipt.network }}</dd>
+      <dt>Time (UTC)</dt><dd class="small">{{ receipt.ts_ns | int }}</dd>
+      <dt>Hash</dt><dd class="mono tiny">{{ receipt.hash }}</dd>
+      <dt>Prev hash</dt><dd class="mono tiny">{{ receipt.prev_hash }}</dd>
+    </dl>
+  </article>
+  <article class="card">
+    <h2>Receipt chain integrity</h2>
+    <p>
+      <span class="badge" data-state="{{ 'Verified' if integrity.valid else 'Failed' }}">
+        {{ "valid" if integrity.valid else "BROKEN" }}
+      </span>
+      <span class="small muted">{{ integrity.checked }} receipts checked</span>
+    </p>
+    <p class="small muted">
+      Each receipt commits to its predecessor. A broken link means the local ledger was tampered with.
+    </p>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Raw payload</h2>
+  <pre class="code"><code>{{ receipt_json }}</code></pre>
+</section>
+{% endblock %}

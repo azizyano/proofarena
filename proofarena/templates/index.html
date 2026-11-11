@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}ProofArena — verifiable AI security work{% endblock %}
+{% block page %}index{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Verified security work, paid once, by the owner.</h1>
+  <p class="lede">
+    An owner funds a bounty for an <em>explicitly authorized</em> fixture. An auditor agent submits a
+    reproducible failing test. An independent verifier re-runs it. A defender patches. The verifier
+    re-runs before/after. The owner signs the approval. Escrow settles exactly once.
+  </p>
+  <div class="hero-actions">
+    <a class="btn" href="/bounties/new">Create a bounty</a>
+    <a class="btn btn-ghost" href="/bounties">Browse bounties</a>
+  </div>
+  <div class="pill-row">
+    <span class="pill">Evidence, not prose</span>
+    <span class="pill">Owner-only payout authority</span>
+    <span class="pill">No autonomous custody</span>
+    <span class="pill warn">Local chain simulator — not testnet</span>
+  </div>
+</section>
+
+<section class="grid">
+  <article class="card">
+    <h2>What is enforced</h2>
+    <ul class="check">
+      <li>At most one approved winner per bounty.</li>
+      <li>Payout and refund are mutually exclusive and terminal.</li>
+      <li>A submitted transfer shows <code>PayoutPending</code>, never <code>Paid</code>.</li>
+      <li>An ambiguous transfer freezes into <code>NeedsReconciliation</code>; no blind retry.</li>
+      <li>Agent tokens are scoped to one challenge and one role.</li>
+    </ul>
+  </article>
+  <article class="card">
+    <h2>What is <em>not</em> claimed</h2>
+    <ul class="cross">
+      <li>No NEAR testnet deployment in this build (BLOCKED: no credentials/network).</li>
+      <li>Reports are evidence for a human decision, not a proof of security.</li>
+      <li>The verifier is a single operator, not a trustless quorum.</li>
+      <li>No mainnet, no real funds, no token.</li>
+    </ul>
+  </article>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>Recent bounties</h2>
+    <a href="/bounties">all →</a>
+  </div>
+  {% if challenges %}
+  <div class="cards">
+    {% for c in challenges %}
+    <a class="challenge-card" href="/bounties/{{ c.id }}">
+      <div class="ch-top">
+        <span class="badge" data-state="{{ c.state }}">{{ c.state }}</span>
+        <span class="reward">{{ c.reward_yocto | fmt_near }}</span>
+      </div>
+      <h3>{{ c.title }}</h3>
+      <p class="mono small">{{ c.source_commit[:12] }}… · {{ c.claim_count }} claim(s)</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No bounties yet. <a href="/bounties/new">Create the first one</a>.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Reproduce the whole workflow locally</h2>
+  <pre class="code"><code>python scripts/dev.py            # start API + web (127.0.0.1:8787)
+python wallet/signer.py          # start the local owner wallet (8788)
+python scripts/e2e_demo.py       # drive the full lifecycle and print receipts</code></pre>
+  <p class="small">
+    The demo prints real runner output and hash-chained receipts from the local ledger. It never
+    claims a testnet transaction.
+  </p>
+</section>
+{% endblock %}

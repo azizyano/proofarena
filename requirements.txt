@@ -1,0 +1,22 @@
+# ProofArena runtime dependencies.
+#
+# Pinned to the versions actually present in the build environment, which is
+# the environment every test number in docs/QA_MATRIX.md was produced on.
+#
+# FastAPI is intentionally absent: it could not be installed offline, so the API
+# targets Starlette directly (docs/adr/0003-backend-framework.md).
+
+starlette==0.41.3
+uvicorn==0.34.0
+pydantic==2.10.4
+jinja2==3.1.6
+jsonschema==4.26.0
+cryptography==47.0.0
+python-multipart==0.0.26
+
+# Testing
+pytest==8.3.4
+httpx==0.28.1
+
+# Optional: swap in FastAPI when the network is available (see ADR-0003).
+# fastapi==0.115.0

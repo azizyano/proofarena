@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Create a bounty — ProofArena{% endblock %}
+{% block page %}new{% endblock %}
+{% block content %}
+<h1>Create and fund a bounty</h1>
+<p class="lede small">
+  Creating a bounty stores an off-chain manifest and its digest. Funding it requires a
+  <strong>signed intent</strong> from your wallet; the API never signs for you.
+</p>
+
+<form id="create-form" class="card form" autocomplete="off">
+  <label>Title
+    <input name="title" required minlength="3" maxlength="120"
+           value="Allowance ledger invariant challenge">
+  </label>
+  <label>Repository or fixture reference
+    <input name="repo_url" required maxlength="300" value="fixture/baseline (authorized synthetic fixture)">
+  </label>
+  <label>Pinned source commit (40 hex chars)
+    <input name="source_commit" required pattern="[0-9a-f]{40}" class="mono"
+           value="1111111111111111111111111111111111111111">
+  </label>
+  <div class="row">
+    <label>Reward (NEAR)
+      <input name="reward_near" type="number" step="0.001" min="0.001" max="100" value="5">
+    </label>
+    <label>Submission window (seconds)
+      <input name="submission_seconds" type="number" min="30" max="604800" value="600">
+    </label>
+    <label>Review grace (seconds)
+      <input name="review_seconds" type="number" min="30" max="1209600" value="600">
+    </label>
+  </div>
+  <label>Scope (JSON, authorized testing boundary)
+    <textarea name="scope" rows="6" class="mono">{
+  "authorization": "synthetic fixture owned by the bounty owner",
+  "allowed_files": ["ledger.py"],
+  "allowed_commands": ["pytest fixture/tests"],
+  "forbidden": ["network", "real targets", "funds"]
+}</textarea>
+  </label>
+  <div class="form-actions">
+    <button class="btn" type="submit">Create + fund</button>
+    <span id="form-status" class="small muted"></span>
+  </div>
+</form>
+
+<section class="card small">
+  <h2>What happens on submit</h2>
+  <ol>
+    <li><code>POST /v1/challenges</code> → off-chain manifest + <code>metadata_hash</code>.</li>
+    <li><code>POST /v1/intents</code> → a canonical message to sign.</li>
+    <li>Your wallet signs it (<code>fund_bounty</code>); the signature is single-use.</li>
+    <li><code>POST /v1/challenges/{id}/fund</code> → escrow funded; state <code>Open</code>.</li>
+  </ol>
+</section>
+{% endblock %}

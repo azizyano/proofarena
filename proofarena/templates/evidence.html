@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Evidence {{ claim.id }} — ProofArena{% endblock %}
+{% block page %}evidence{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div>
+    <h1>Claim evidence</h1>
+    <p class="mono small">{{ claim.id }} · challenge <a href="/bounties/{{ claim.challenge_id }}">{{ claim.challenge_id }}</a></p>
+  </div>
+  <span class="badge badge-lg" data-state="{{ claim.status }}">{{ claim.status }}</span>
+</div>
+
+<section class="grid">
+  <article class="card">
+    <h2>Public commitment</h2>
+    <dl class="facts">
+      <dt>Submitter</dt><dd class="mono small">{{ claim.submitter }}</dd>
+      <dt>On-chain claim</dt><dd class="mono">#{{ claim.onchain_claim_id }}</dd>
+      <dt>Evidence commitment</dt><dd class="mono tiny">{{ claim.commitment_hex }}</dd>
+      <dt>Manifest digest</dt><dd class="mono tiny">{{ claim.manifest_sha256 }}</dd>
+      <dt>Patch digest</dt><dd class="mono tiny">{{ claim.patch.diff_sha256 if claim.patch else "—" }}</dd>
+    </dl>
+    <p class="small muted">
+      Only digests are anchored. The manifest, diffs and runner logs are private and owner-only.
+    </p>
+  </article>
+
+  <article class="card" id="private-evidence" data-claim-id="{{ claim.id }}" data-challenge-id="{{ claim.challenge_id }}">
+    <h2>Private evidence</h2>
+    <p class="small muted">Requires the owner wallet session. Unauthorized reads return 403 and are audited.</p>
+    <button class="btn" id="load-evidence" type="button">Load private evidence</button>
+    <div id="evidence-out" class="stack"></div>
+  </article>
+</section>
+{% endblock %}

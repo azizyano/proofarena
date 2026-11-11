@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Release status — ProofArena{% endblock %}
+{% block page %}status{% endblock %}
+{% block content %}
+<h1>Release status</h1>
+<p class="lede small">
+  Truthful status labels. Anything not executed locally is marked BLOCKED, not "done".
+</p>
+
+<section class="grid">
+  <article class="card">
+    <h2>Runtime</h2>
+    <table class="table">
+      <tbody>
+        {% for label, value in rows %}
+        <tr><th>{{ label }}</th><td class="mono small">{{ value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+  <article class="card">
+    <h2>Receipt chain</h2>
+    <p>
+      <span class="badge" data-state="{{ 'Verified' if integrity.valid else 'Failed' }}">
+        {{ "valid" if integrity.valid else "BROKEN" }}
+      </span>
+    </p>
+    <p class="small mono">head: {{ integrity.head[:32] }}…</p>
+    <p class="small mono">checked: {{ integrity.checked }}</p>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Gate status</h2>
+  <table class="table">
+    <thead><tr><th>Gate</th><th>Status</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>G0 workspace &amp; design</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">repo, ADRs, schemas, status board</td></tr>
+      <tr><td>G1 security kernel</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">41 escrow tests, runner isolation tests</td></tr>
+      <tr><td>G2 API &amp; UI</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">API auth/negative tests, page tests</td></tr>
+      <tr><td>G3 testnet deployment</td><td><span class="badge" data-state="Blocked">BLOCKED</span></td><td class="small">no NEAR contract, no funded account, no RPC access</td></tr>
+      <tr><td>G4 demo &amp; submission</td><td><span class="badge" data-state="TestedLocal">TESTED_LOCAL</span></td><td class="small">scripts/e2e_demo.py end-to-end run</td></tr>
+    </tbody>
+  </table>
+  <p class="small">
+    Rust toolchain and outbound network are unavailable in the build environment; see
+    <code>communications/STATUS_BOARD.md</code> for the exact commands and blockers.
+  </p>
+</section>
+{% endblock %}

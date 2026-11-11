@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ProofArena{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-page="{% block page %}base{% endblock %}">
+  <header class="topbar">
+    <a class="brand" href="/">Proof<span>Arena</span></a>
+    <nav>
+      {% for href, label in nav %}<a href="{{ href }}">{{ label }}</a>{% endfor %}
+    </nav>
+    <div class="wallet">
+      <span id="wallet-account" class="wallet-account">wallet: not connected</span>
+      <button id="connect-btn" type="button" class="btn btn-small">Connect owner wallet</button>
+    </div>
+  </header>
+
+  {% if meta.chain_is_simulated %}
+  <div class="banner" role="status">
+    CHAIN MODE: <strong>LOCAL SIMULATOR</strong> ({{ meta.network }}) — receipts below are
+    <strong>not</strong> NEAR testnet transactions and no real funds move. NEAR testnet deployment is
+    <strong>BLOCKED</strong> in this build.
+  </div>
+  {% endif %}
+
+  <main class="wrap">
+    <div id="toast" class="toast" hidden></div>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <span>ProofArena v{{ meta.version }}</span>
+    <span>contract label: <code>{{ meta.contract_id }}</code></span>
+    <span>settlement: <code>{{ meta.settlement_mode }}</code></span>
+    <span><a href="/status">release status</a></span>
+  </footer>
+
+  <script>window.PROOFARENA = {{ meta | tojson }};</script>
+  <script src="/static/app.js" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

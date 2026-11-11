@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Bounties — ProofArena{% endblock %}
+{% block page %}bounties{% endblock %}
+{% block content %}
+<div class="section-head">
+  <h1>Bounties</h1>
+  <a class="btn" href="/bounties/new">New bounty</a>
+</div>
+
+{% if challenges %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>Title</th><th>State</th><th>Reward</th><th>Commit</th><th>Claims</th><th>Deadline</th></tr>
+    </thead>
+    <tbody>
+      {% for c in challenges %}
+      <tr>
+        <td><a href="/bounties/{{ c.id }}">{{ c.title }}</a></td>
+        <td><span class="badge" data-state="{{ c.state }}">{{ c.state }}</span></td>
+        <td class="mono">{{ c.reward_yocto | fmt_near }}</td>
+        <td class="mono small">{{ c.source_commit[:10] }}…</td>
+        <td>{{ c.claim_count }}</td>
+        <td class="small">{{ c.deadline_utc }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">No bounties yet.</p>
+{% endif %}
+{% endblock %}
