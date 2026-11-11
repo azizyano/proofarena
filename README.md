@@ -12,6 +12,8 @@ one bounty, one winner, native token, testnet-only.
 
 ---
 
+![Architecture: wallet authorises, contract settles, verifier re-executes](docs/assets/architecture.png)
+
 ## Release verdict
 
 | Verdict | Status |
@@ -30,6 +32,45 @@ Read `communications/STATUS_BOARD.md` for per-task evidence and `docs/QA_MATRIX.
 executed test matrix. Nothing in this repo is mainnet-ready and no real funds are involved.
 
 ---
+
+
+## Judge's path — do X, see Y
+
+Works from a clean checkout. Steps 1–2 need **no network**.
+
+| # | Do this | You should see |
+|---|---|---|
+| 1 | `python -m pytest tests/ -q` | `176 passed` |
+| 2 | `python scripts/e2e_demo.py` | `verification : PATCH_VERIFIED`, `settlement : Paid exactly once`, `6 receipts`, `chain valid : True` |
+| 3 | `python scripts/testnet/verify_wallet_txs.py` *(network)* | four real testnet transactions accepted; a tampered plan and a wrong signer rejected |
+| 4 | `python -c "from proofarena.near.rpc import NearRpc; r=NearRpc(); print(r.view_call('proofarena-c23922.testnet','get_bounty',{'bounty_id':3})['state'])"` *(network)* | `Paid` — bounty #3, winner `proofarena-auditor-0fbc4e.testnet` |
+| 5 | `python scripts/dev.py` then open `/wallet/` | connect Meteor on testnet, create + fund a 0.1 NEAR bounty, get an explorer link |
+
+Every claim in this README maps to something you can execute or look up:
+
+| Claim | Where to check |
+|---|---|
+| Contract is deployed | `list_bounty_ids() → [1, 2, 3, 4]` on `proofarena-c23922.testnet` |
+| Payout happened exactly once | bounty #3 `Paid`, tx `AVwQZ4md…` in `docs/TESTNET_EVIDENCE.md` |
+| Refunds happened | bounties #2 and #4 `Refunded`, `total_escrow_yocto() → 0` |
+| A second payout is refused | `409 E_STATE` from the contract (reproduced in `scripts/testnet/smoke.py`) |
+| The browser wallet holds the key | `/wallet/`, NEP-413 sign-in, tx confirmed on chain |
+| 176 tests pass | step 1 |
+
+![On-chain settlement proof](docs/assets/onchain-proof.png)
+
+### Built with NEAR
+
+| Component | Usage |
+|---|---|
+| **NEAR testnet** | contract host, escrow funds, settlement receipts |
+| **near-sdk 5.9 (Rust → wasm)** | native-NEAR escrow: one winner, owner-only approval, exclusive payout/refund |
+| **NEAR JSON-RPC** | view calls, access keys, block hash, nonce, transaction broadcast/status |
+| **NEP-413** | wallet sign-in (`signMessage`) verified against on-chain access keys |
+| **@near-wallet-selector** | Meteor / Nightly / MyNearWallet in the browser |
+| **ed25519 transactions** | signed in the browser; the server holds no key |
+
+No other chain, no token, no mainnet.
 
 ## The one honest caveat, stated first
 
@@ -235,6 +276,12 @@ You do not need the faucet unless you want your own account
 If a transaction is ever rejected with `InvalidTxError`, retry with
 `PROOFARENA_NEAR_WALLET=cli` to delegate signing to the official `near` CLI — see ADR-0006.
 
+## Submission
+
+Hackathon package (paste-ready description, track, demo-post draft, checklist):
+**[docs/HACKATHON_SUBMISSION.md](docs/HACKATHON_SUBMISSION.md)**.
+What is and is not claimed: **[docs/SUBMISSION.md](docs/SUBMISSION.md)**.
+
 ## Security notes
 
 - The demo wallet key lives in `wallet/owner.key.json` (git-ignored) and is generated locally.
@@ -249,4 +296,5 @@ If a transaction is ever rejected with `InvalidTxError`, retry with
 
 ## License
 
-No license file yet — add one before any public submission.
+MIT — see [LICENSE](LICENSE). The contract and tooling are a testnet research prototype: not
+audited, not for real funds.
