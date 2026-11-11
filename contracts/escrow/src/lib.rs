@@ -1,6 +1,9 @@
 //! ProofArena escrow — native NEAR, testnet-only MVP.
 //!
-//! STATUS: `IMPLEMENTED_UNTESTED`.
+//! STATUS: `IMPLEMENTED_UNTESTED` (never compiled in the authoring environment).
+//! The settlement callbacks use the near-sdk 5.x pattern
+//! (`Self::ext(..).with_static_gas(..)`) rather than the 4.x `Promise::new(self).method(gas)`
+//! form; if the compiler disagrees about an API detail, that is the place to look.
 //! This file has **not been compiled or executed**: the build environment for
 //! this iteration had no Rust toolchain and no network access to fetch
 //! `near-sdk`. The executable reference implementation that *was* tested is
@@ -437,11 +440,9 @@ impl Contract {
         Promise::new(winner.clone())
             .transfer(NearToken::from_yoctonear(amount.0))
             .then(
-                Promise::new(env::current_account_id()).on_payout_complete(
-                    bounty_id,
-                    attempt_id,
-                    CALLBACK_GAS,
-                ),
+                Self::ext(env::current_account_id())
+                    .with_static_gas(CALLBACK_GAS)
+                    .on_payout_complete(bounty_id, attempt_id),
             );
         near_sdk::log!(
             "{{\"event\":\"payout_requested\",\"bounty_id\":{},\"attempt_id\":{},\"amount_yocto\":\"{}\",\"recipient\":\"{}\"}}",
@@ -550,11 +551,9 @@ impl Contract {
         Promise::new(owner.clone())
             .transfer(NearToken::from_yoctonear(amount.0))
             .then(
-                Promise::new(env::current_account_id()).on_refund_complete(
-                    bounty_id,
-                    attempt_id,
-                    CALLBACK_GAS,
-                ),
+                Self::ext(env::current_account_id())
+                    .with_static_gas(CALLBACK_GAS)
+                    .on_refund_complete(bounty_id, attempt_id),
             );
         near_sdk::log!(
             "{{\"event\":\"refund_requested\",\"bounty_id\":{},\"attempt_id\":{},\"recipient\":\"{}\"}}",
